@@ -1,714 +1,285 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<title>Zombie Survival — 2 Jugadores</title>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
-  html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: #0a0a0a; color: #e8e8e8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; touch-action: none; }
-  #app { position: relative; width: 100%; height: 100%; }
-  .screen { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; z-index: 10; background: radial-gradient(ellipse at center, #1a0f0f 0%, #050505 100%); }
-  .screen.active { display: flex; }
-  h1 { font-size: clamp(28px, 6vw, 48px); color: #ff4040; text-shadow: 0 0 20px #ff2020; margin: 0 0 8px; letter-spacing: 2px; }
-  h2 { color: #ffaa55; margin: 0 0 20px; font-weight: 500; }
-  p { color: #aaa; margin: 6px 0; font-size: 14px; }
-  .small { font-size: 12px; color: #777; margin-top: 20px; }
-  input { background: #1a1a1a; border: 2px solid #ff4040; color: #fff; padding: 12px 20px; font-size: 18px; border-radius: 8px; width: 100%; max-width: 320px; text-align: center; text-transform: uppercase; letter-spacing: 3px; margin: 8px 0; font-family: monospace; }
-  input:focus { outline: none; box-shadow: 0 0 15px #ff404080; }
-  button { background: linear-gradient(180deg, #d83030, #a02020); color: white; border: none; padding: 14px 32px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin: 8px; min-width: 200px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 0 #601010, 0 6px 10px rgba(0,0,0,0.5); transition: transform 0.05s, box-shadow 0.05s; }
-  button:active { transform: translateY(2px); box-shadow: 0 2px 0 #601010, 0 3px 5px rgba(0,0,0,0.5); }
-  button.secondary { background: linear-gradient(180deg, #444, #222); box-shadow: 0 4px 0 #111, 0 6px 10px rgba(0,0,0,0.5); }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-  .code-display { font-family: monospace; font-size: 36px; color: #ffdd55; background: #000; padding: 16px 24px; border-radius: 8px; border: 2px dashed #ffaa55; letter-spacing: 8px; margin: 12px 0; }
-  #classSelect { gap: 12px; }
-  .class-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-width: 500px; width: 100%; max-height: 60vh; overflow-y: auto; padding: 10px; }
-  @media (min-width: 600px) { .class-grid { grid-template-columns: repeat(3, 1fr); max-width: 700px; } }
-  .class-card { background: #1a1a1a; border: 2px solid #333; border-radius: 10px; padding: 12px; cursor: pointer; transition: all 0.15s; text-align: left; min-height: 90px; }
-  .class-card:hover { border-color: #ff8040; transform: translateY(-2px); }
-  .class-card.selected { border-color: #ffdd55; background: #2a2010; box-shadow: 0 0 20px #ffaa5550; }
-  .class-card .name { font-weight: bold; color: #ffdd55; font-size: 14px; }
-  .class-card .emoji { font-size: 28px; float: right; }
-  .class-card .desc { color: #aaa; font-size: 11px; margin-top: 4px; line-height: 1.3; }
-  .class-card .ability { color: #88ddff; font-size: 10px; margin-top: 4px; font-style: italic; }
-  #gameScreen { padding: 0; background: #000; }
-  canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
-  #hud { position: absolute; top: 0; left: 0; right: 0; padding: 10px 14px; background: linear-gradient(180deg, rgba(0,0,0,0.85), transparent); display: flex; justify-content: space-between; align-items: center; pointer-events: none; z-index: 5; font-size: 14px; }
-  .hud-item { display: flex; align-items: center; gap: 6px; }
-  .bar { width: 120px; height: 12px; background: #333; border-radius: 6px; overflow: hidden; border: 1px solid #555; }
-  .bar-fill { height: 100%; transition: width 0.2s; }
-  .hp-fill { background: linear-gradient(90deg, #ff3030, #ff6060); }
-  .ability-fill { background: linear-gradient(90deg, #4080ff, #80c0ff); }
-  .ability-ready { background: linear-gradient(90deg, #ffdd55, #fff8aa); }
-  #mobileControls { position: absolute; bottom: 0; left: 0; right: 0; display: none; padding: 14px; z-index: 6; pointer-events: none; }
-  #mobileControls .ctrl-btn { pointer-events: auto; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.4); color: white; border-radius: 50%; width: 64px; height: 64px; font-size: 24px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
-  .ctrl-btn:active { background: rgba(255,255,255,0.4); }
-  #joystick { position: absolute; bottom: 20px; left: 20px; width: 130px; height: 130px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; pointer-events: auto; }
-  #joystickKnob { width: 50px; height: 50px; background: rgba(255,255,255,0.4); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-  #btnAttack { position: absolute; bottom: 30px; right: 30px; width: 80px; height: 80px; background: rgba(255, 60, 60, 0.7); border: 3px solid rgba(255, 120, 120, 0.9); color: white; border-radius: 50%; font-size: 14px; font-weight: bold; pointer-events: auto; }
-  #btnAbility { position: absolute; bottom: 120px; right: 35px; width: 64px; height: 64px; background: rgba(80, 160, 255, 0.6); border: 2px solid rgba(150, 200, 255, 0.8); color: white; border-radius: 50%; font-size: 11px; font-weight: bold; pointer-events: auto; }
-  #gameOver { background: rgba(0,0,0,0.95); }
-  .big-text { font-size: clamp(36px, 8vw, 64px); color: #ff3030; text-shadow: 0 0 30px #ff0000; margin: 0; }
-  .winner { color: #ffdd55; }
-  #status { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 6px; font-size: 12px; z-index: 7; display: none; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pi Decimal Generator & Autoclicker</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 800px;
+      width: 100%;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: #38bdf8;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.95rem;
+      margin-bottom: 24px;
+    }
+    .stats-container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .stat-box {
+      background: #0f172a;
+      padding: 12px 24px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+    }
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #38bdf8;
+    }
+    .stat-label {
+      font-size: 0.8rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .pi-display-wrapper {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      max-height: 250px;
+      overflow-y: auto;
+      margin-bottom: 28px;
+      word-break: break-all;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 1.25rem;
+      line-height: 1.6;
+      text-align: left;
+      color: #f1f5f9;
+    }
+    .pi-digit-highlight {
+      color: #f43f5e;
+      font-weight: bold;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      align-items: center;
+    }
+    .btn {
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary {
+      background: #0284c7;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #0369a1;
+    }
+    .btn-success {
+      background: #10b981;
+      color: white;
+    }
+    .btn-success:hover {
+      background: #059669;
+    }
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+    .btn-secondary {
+      background: #475569;
+      color: white;
+    }
+    .btn-secondary:hover {
+      background: #334155;
+    }
+    .speed-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #0f172a;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      font-size: 0.9rem;
+    }
+    .speed-control input {
+      width: 100px;
+      accent-color: #38bdf8;
+    }
+  </style>
 </head>
 <body>
-<div id="app">
-  <div id="menu" class="screen active">
-    <h1>🧟 ZOMBIE SURVIVAL</h1>
-    <h2>2 Jugadores · Cross-Device</h2>
-    <div class="row">
-      <button id="btnCreate">🎮 Crear Partida</button>
-      <button id="btnJoin" class="secondary">🔗 Unirse con Código</button>
+
+  <div class="card">
+    <h1>Generador Infinito de Pi (π)</h1>
+    <p class="subtitle">Calcula decimales en tiempo real de forma matemática ilimitada</p>
+
+    <div class="stats-container">
+      <div class="stat-box">
+        <div class="stat-value" id="counter">0</div>
+        <div class="stat-label">Decimales</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="speed-display">100 ms</div>
+        <div class="stat-label">Intervalo</div>
+      </div>
     </div>
-    <p class="small">Un jugador crea, el otro mete el código. Funciona entre distintos países.</p>
-  </div>
-  <div id="lobby" class="screen">
-    <h1 id="lobbyTitle">Esperando...</h1>
-    <div id="lobbyContent"></div>
-  </div>
-  <div id="classSelect" class="screen">
-    <h1>ELIGE TU CLASE</h1>
-    <h2 id="playerLabel">Jugador 1</h2>
-    <div class="class-grid" id="classGrid"></div>
-    <button id="btnReady" disabled>✅ Listo</button>
-    <p class="small" id="classHint">Elige tu clase</p>
-  </div>
-  <div id="gameScreen" class="screen">
-    <canvas id="canvas"></canvas>
-    <div id="hud">
-      <div class="hud-item"><span>❤️</span><div class="bar"><div class="bar-fill hp-fill" id="hpBar" style="width:100%"></div></div><span id="hpText">100</span></div>
-      <div class="hud-item"><span id="abilityIcon">⚡</span><div class="bar"><div class="bar-fill ability-fill" id="abilityBar" style="width:100%"></div></div></div>
-      <div class="hud-item"><span>🧟</span><span id="waveText">1</span><span style="margin-left:10px">⭐</span><span id="scoreText">0</span></div>
+
+    <div class="pi-display-wrapper" id="pi-container">
+      <span id="pi-text">3</span>
     </div>
-    <div id="mobileControls">
-      <div id="joystick"><div id="joystickKnob"></div></div>
-      <button id="btnAttack" class="ctrl-btn">ATK</button>
-      <button id="btnAbility" class="ctrl-btn">⚡</button>
-    </div>
-    <div id="status"></div>
-  </div>
-  <div id="gameOver" class="screen">
-    <h1 class="big-text" id="gameOverText">GAME OVER</h1>
-    <h2 id="gameOverSub" class="winner"></h2>
-    <div class="row">
-      <button id="btnRestart">🔄 Jugar de Nuevo</button>
-      <button id="btnMenu" class="secondary">🏠 Menú</button>
+
+    <div class="controls">
+      <button class="btn btn-primary" id="btn-add">+1 Decimal</button>
+      <button class="btn btn-success" id="btn-autoclick">Iniciar Autoclicker</button>
+      <button class="btn btn-secondary" id="btn-reset">Reiniciar</button>
+
+      <div class="speed-control">
+        <label for="speed-range">Velocidad:</label>
+        <input type="range" id="speed-range" min="10" max="1000" step="10" value="100">
+      </div>
     </div>
   </div>
-</div>
-<script>
-const CLASSES = [
-  { id: 'soldier', name: 'Soldado', emoji: '🎖️', color: '#88aa66', desc: 'Equilibrado, confiable.', ability: 'Granada: AoE damage + empuje', cd: 8 },
-  { id: 'necromancer', name: 'Necromante', emoji: '💀', color: '#aa55ff', desc: 'Revive zombies como aliados.', ability: 'Drenar vida de un zombie', cd: 6 },
-  { id: 'ice', name: 'Hielo', emoji: '❄️', color: '#55ddff', desc: 'Congela enemigos.', ability: 'Rayo de hielo: congela varios', cd: 7 },
-  { id: 'fire', name: 'Fuego', emoji: '🔥', color: '#ff6633', desc: 'Quema en área, daña con el tiempo.', ability: 'Llamarada AoE', cd: 8 },
-  { id: 'medic', name: 'Médico', emoji: '💊', color: '#ff66aa', desc: 'Cura aliados y a sí misma.', ability: 'Curar aliado cercano', cd: 5 },
-  { id: 'sniper', name: 'Francotirador', emoji: '🎯', color: '#cccc88', desc: 'Daño alto a distancia, lenta.', ability: 'Tiro certero: atraviesa', cd: 4 },
-  { id: 'engineer', name: 'Ingeniera', emoji: '🔧', color: '#ffaa55', desc: 'Coloca torretas automáticas.', ability: 'Torreta: dispara sola', cd: 10 },
-  { id: 'shadow', name: 'Sombra', emoji: '🌑', color: '#6666aa', desc: 'Se vuelve invisible y letal.', ability: 'Furtividad: invisibilidad', cd: 8 },
-  { id: 'brawler', name: 'Luchadora', emoji: '👊', color: '#ff4444', desc: 'Daño melee brutal, poca vida.', ability: 'Ira: doble daño por 3s', cd: 7 },
-  { id: 'electric', name: 'Eléctrica', emoji: '⚡', color: '#ffdd44', desc: 'Cadenas eléctricas entre zombies.', ability: 'Descarga: salta entre enemigos', cd: 6 },
-];
 
-let peer = null, conn = null, isHost = false, myId = null, roomCode = null;
-let myClass = null, peerClass = null, bothReady = false, game = null;
-let peerClassPending = false;
-const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|Windows Phone/i.test(navigator.userAgent) || ('ontouchstart' in window);
-
-function $(id) { return document.getElementById(id); }
-function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); }
-function status(msg, ms) { const el = $('status'); el.textContent = msg; el.style.display = 'block'; clearTimeout(el._t); el._t = setTimeout(() => el.style.display = 'none', ms || 2000); }
-function genCode() { const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random()*chars.length)]; return s; }
-
-const PEER_PREFIX = 'zs-';
-const PEER_CONFIG = { host: '0.peerjs.com', port: 443, secure: true, debug: 1 };
-
-function initPeer(myFixedId) {
-  return new Promise((resolve, reject) => {
-    const p = myFixedId ? new Peer(myFixedId, PEER_CONFIG) : new Peer(PEER_CONFIG);
-    p.on('open', (id) => resolve(p));
-    p.on('error', (err) => {
-      console.error('Peer error:', err);
-      if (err.type === 'unavailable-id' || err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
-        reject(Object.assign(err, { retry: true })); return;
-      }
-      reject(err);
-    });
-  });
-}
-
-async function createRoom() {
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const code = genCode();
-    try { peer = await initPeer(PEER_PREFIX + code); roomCode = code; isHost = true; return; }
-    catch (e) { if (e.retry && attempt < 7) continue; throw e; }
-  }
-  throw new Error('No se pudo generar un código libre. Intenta de nuevo.');
-}
-
-function joinRoom(code) {
-  const targetId = PEER_PREFIX + code;
-  return new Promise((resolve, reject) => {
-    initPeer().then(p => {
-      peer = p;
-      const c = peer.connect(targetId, { reliable: true });
-      let done = false;
-      const timeout = setTimeout(() => { if (done) return; done = true; try { c.close(); } catch (e) {} reject(new Error('No se encontró la partida. Verifica el código.')); }, 12000);
-      c.on('open', () => { if (done) return; done = true; clearTimeout(timeout); conn = c; isHost = false; resolve(); });
-      c.on('error', (err) => { if (done) return; done = true; clearTimeout(timeout); reject(err); });
-    }).catch(reject);
-  });
-}
-
-$('btnCreate').onclick = async () => {
-  $('btnCreate').disabled = true; $('btnJoin').disabled = true;
-  $('lobbyTitle').textContent = '🎮 Creando partida...';
-  $('lobbyContent').innerHTML = '<p>Reservando código único...</p>';
-  showScreen('lobby');
-  try {
-    await createRoom();
-    $('lobbyTitle').textContent = '🎮 PARTIDA CREADA';
-    $('lobbyContent').innerHTML =
-      '<p>Comparte ESTE código con tu compañero:</p>' +
-      '<div class="code-display" id="shareCode">' + roomCode + '</div>' +
-      '<button id="btnCopyCode" class="secondary">📋 Copiar código</button>' +
-      '<p style="margin-top:18px">Esperando conexión...</p>' +
-      '<p class="small" style="font-size:12px">Tip: también puedes compartir este link:<br>' +
-      '<span style="color:#88ddff;font-family:monospace;font-size:11px">' + location.href.split('#')[0] + '#' + roomCode + '</span></p>';
-    $('btnCopyCode').onclick = () => {
-      try { navigator.clipboard.writeText(roomCode); } catch (e) {}
-      $('btnCopyCode').textContent = '✅ ¡Copiado!';
-      setTimeout(() => $('btnCopyCode').textContent = '📋 Copiar código', 1500);
-    };
-    status('', 0);
-    peer.on('connection', (c) => { conn = c; setupConn(); });
-  } catch (e) {
-    alert('Error: ' + e.message);
-    $('btnCreate').disabled = false; $('btnJoin').disabled = false;
-    showScreen('menu');
-  }
-};
-
-$('btnJoin').onclick = () => {
-  const hashCode = location.hash.replace('#', '').toUpperCase();
-  $('lobbyContent').innerHTML =
-    '<p>Escribe el código de la partida:</p>' +
-    '<input id="codeInput" maxlength="5" placeholder="ABCDE" autocomplete="off" value="' + hashCode + '" />' +
-    '<button id="btnConnect">🔗 Conectar</button>' +
-    '<button class="secondary" id="btnBack">← Volver</button>';
-  $('lobbyTitle').textContent = '🔗 UNIRSE';
-  showScreen('lobby');
-  setTimeout(() => { $('codeInput').focus(); if (hashCode.length === 5) doJoin(); }, 100);
-  $('btnConnect').onclick = doJoin;
-  $('btnBack').onclick = () => showScreen('menu');
-  $('codeInput').onkeypress = (e) => { if (e.key === 'Enter') doJoin(); };
-};
-
-async function doJoin() {
-  const code = $('codeInput').value.trim().toUpperCase();
-  if (code.length !== 5) { alert('El código tiene 5 letras/números'); return; }
-  $('btnConnect').disabled = true;
-  $('lobbyTitle').textContent = '🔗 Conectando...';
-  $('lobbyContent').innerHTML = '<p>Buscando partida <span id="dots">.</span></p>';
-  let n = 1;
-  const dotTimer = setInterval(() => { n = (n % 3) + 1; const d = $('dots'); if (d) d.textContent = '.'.repeat(n); }, 400);
-  try {
-    await joinRoom(code);
-    clearInterval(dotTimer);
-    status('¡Conectado!', 2000);
-    showClassSelect();
-  } catch (e) {
-    clearInterval(dotTimer);
-    alert('❌ ' + e.message);
-    $('btnJoin').click();
-  }
-}
-
-function setupConn() {
-  conn.on('open', () => {
-    status('¡Conectado!', 2000);
-    showClassSelect();
-    if (myClass) { try { conn.send({ type: 'class', class: myClass }); } catch (e) {} }
-    if (peerClassPending && peerClass) { peerClassPending = false; updateClassHint(); if (myClass) startGame(); }
-  });
-  conn.on('data', (data) => {
-    if (data.type === 'hello') { if (myClass) { try { conn.send({ type: 'class', class: myClass }); } catch (e) {} } }
-    else if (data.type === 'class') { peerClass = data.class; peerClassPending = false; updateClassHint(); if (myClass) startGame(); }
-    else if (data.type === 'restart') { myClass = null; peerClass = null; bothReady = false; peerClassPending = false; showClassSelect(); }
-    else if (data.type === 'input') { if (game) game.applyPeerInput(data); }
-    else if (data.type === 'state') { if (game) game.applyPeerState(data); }
-    else if (data.type === 'spawn') { if (game) game.applyPeerSpawn(data); }
-  });
-  conn.on('close', () => {
-    if (game) { game.end(true); }
-    else { alert('El otro jugador se desconectó.'); showScreen('menu'); $('btnCreate').disabled = false; $('btnJoin').disabled = false; }
-  });
-  try { conn.send({ type: 'hello' }); } catch (e) {}
-}
-
-function showClassSelect() {
-  const grid = $('classGrid');
-  grid.innerHTML = '';
-  CLASSES.forEach(c => {
-    const card = document.createElement('div');
-    card.className = 'class-card';
-    card.innerHTML = '<div class="emoji">' + c.emoji + '</div><div class="name">' + c.name + '</div><div class="desc">' + c.desc + '</div><div class="ability">⚡ ' + c.ability + ' (' + c.cd + 's CD)</div>';
-    card.onclick = () => {
-      document.querySelectorAll('.class-card').forEach(x => x.classList.remove('selected'));
-      card.classList.add('selected');
-      myClass = c;
-      $('btnReady').disabled = false;
-    };
-    grid.appendChild(card);
-  });
-  $('btnReady').disabled = true;
-  $('classHint').textContent = 'Elige tu clase';
-  showScreen('classSelect');
-}
-
-$('btnReady').onclick = () => {
-  if (!myClass) return;
-  $('btnReady').disabled = true;
-  $('classHint').textContent = 'Esperando al otro jugador...';
-  let attempts = 0;
-  const trySend = () => {
-    if (!conn || !conn.open) {
-      if (attempts++ < 15) { setTimeout(trySend, 200); return; }
-      alert('Conexión inestable, intenta de nuevo.');
-      $('btnReady').disabled = false;
-      return;
-    }
-    try { conn.send({ type: 'class', class: myClass }); }
-    catch (e) { if (attempts++ < 15) setTimeout(trySend, 200); }
-  };
-  trySend();
-  if (peerClass) startGame(); else updateClassHint();
-};
-
-function updateClassHint() {
-  if (myClass && peerClass) startGame();
-  else if (myClass) $('classHint').textContent = peerClass ? 'Iniciando...' : 'Esperando al otro jugador...';
-}
-
-function startGame() {
-  if (bothReady) return;
-  bothReady = true;
-  showScreen('gameScreen');
-  if (isMobile) $('mobileControls').style.display = 'block';
-  game = new Game(myClass, peerClass, isHost);
-  game.start();
-}
-
-class Game {
-  constructor(myClass, peerClass, isHost) {
-    this.canvas = $('canvas');
-    this.ctx = this.canvas.getContext('2d');
-    this.myClass = myClass; this.peerClass = peerClass; this.isHost = isHost;
-    this.keys = {};
-    this.joystick = { x: 0, y: 0, active: false };
-    this.entities = new Map();
-    this.inputSeq = 0;
-    this.gameOver = false;
-    this.spawnTimer = 0;
-    this.wave = 1;
-    this.score = 0;
-    this.myId = 'me';
-    this.peerId = 'peer';
-    this.resize();
-    window.addEventListener('resize', () => this.resize());
-  }
-  resize() {
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = window.innerWidth * dpr;
-    this.canvas.height = window.innerHeight * dpr;
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.W = window.innerWidth;
-    this.H = window.innerHeight;
-  }
-  start() {
-    this.entities.set(this.myId, this.makePlayer(this.myId, this.myClass, this.W * 0.3, this.H * 0.5, true));
-    this.entities.set(this.peerId, this.makePlayer(this.peerId, this.peerClass, this.W * 0.7, this.H * 0.5, false));
-    this.attackCd = 0;
-    this.setupInput();
-    if (this.isHost) this.startHostLoop(); else this.startClientLoop();
-    const render = () => { this.draw(); if (!this.gameOver) requestAnimationFrame(render); };
-    requestAnimationFrame(render);
-  }
-  makePlayer(id, cls, x, y, isMe) {
-    return { id, classDef: cls, x, y, vx: 0, vy: 0, hp: 100, maxHp: 100, angle: 0, attacking: false, attackTimer: 0, abilityCd: 0, abilityReady: true, isMe, buffs: {} };
-  }
-  setupInput() {
-    window.addEventListener('keydown', (e) => {
-      this.keys[e.key.toLowerCase()] = true;
-      if (e.key === ' ' || e.key === 'f') this.tryAttack();
-      if (e.key === 'e' || e.key === 'q') this.tryAbility();
-    });
-    window.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
-    const joy = $('joystick'), knob = $('joystickKnob');
-    if (joy) {
-      const handleStart = (e) => { e.preventDefault(); this.joystick.active = true; const t = e.touches ? e.touches[0] : e; this.joystick.startX = t.clientX; this.joystick.startY = t.clientY; };
-      const handleMove = (e) => {
-        if (!this.joystick.active) return; e.preventDefault();
-        const t = e.touches ? e.touches[0] : e;
-        let dx = t.clientX - this.joystick.startX, dy = t.clientY - this.joystick.startY;
-        const dist = Math.hypot(dx, dy), max = 40;
-        if (dist > max) { dx = dx / dist * max; dy = dy / dist * max; }
-        knob.style.transform = 'translate(calc(-50% + ' + dx + 'px), calc(-50% + ' + dy + 'px))';
-        this.joystick.x = dx / max; this.joystick.y = dy / max;
-      };
-      const handleEnd = (e) => { e.preventDefault(); this.joystick.active = false; this.joystick.x = 0; this.joystick.y = 0; knob.style.transform = 'translate(-50%, -50%)'; };
-      joy.addEventListener('touchstart', handleStart); joy.addEventListener('touchmove', handleMove); joy.addEventListener('touchend', handleEnd);
-      joy.addEventListener('mousedown', handleStart); window.addEventListener('mousemove', handleMove); window.addEventListener('mouseup', handleEnd);
-    }
-    $('btnAttack') && $('btnAttack').addEventListener('click', () => this.tryAttack());
-    $('btnAbility') && $('btnAbility').addEventListener('click', () => this.tryAbility());
-  }
-  getInputDir() {
-    let dx = 0, dy = 0;
-    if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
-    if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
-    if (this.keys['a'] || this.keys['arrowleft']) dx -= 1;
-    if (this.keys['d'] || this.keys['arrowright']) dx += 1;
-    if (this.joystick.x || this.joystick.y) { dx = this.joystick.x; dy = this.joystick.y; }
-    const m = Math.hypot(dx, dy); if (m > 0) { dx /= m; dy /= m; }
-    return { dx, dy };
-  }
-  tryAttack() {
-    if (this.attackCd > 0 || this.gameOver) return;
-    this.attackCd = 0.4;
-    this.entities.get(this.myId).attacking = true;
-    this.entities.get(this.myId).attackTimer = 0.2;
-    if (!this.isHost) { try { conn.send({ type: 'input', kind: 'attack' }); } catch (e) {} return; }
-    this.doAttack(this.myId);
-  }
-  tryAbility() {
-    const me = this.entities.get(this.myId);
-    if (me.abilityCd > 0 || this.gameOver) return;
-    me.abilityCd = me.classDef.cd;
-    me.abilityReady = false;
-    if (!this.isHost) { try { conn.send({ type: 'input', kind: 'ability' }); } catch (e) {} return; }
-    this.doAbility(this.myId);
-  }
-  startHostLoop() { this.hostInterval = setInterval(() => this.hostTick(), 1000 / 30); }
-  startClientLoop() {
-    setInterval(() => {
-      if (this.gameOver) return;
-      const inp = this.getInputDir();
-      if (inp.dx || inp.dy) { try { conn.send({ type: 'input', kind: 'move', dx: inp.dx, dy: inp.dy }); } catch (e) {} }
-    }, 50);
-  }
-  hostTick() {
-    if (this.gameOver) return;
-    const dt = 1/30;
-    const me = this.entities.get(this.myId);
-    const peer = this.entities.get(this.peerId);
-    const inp = this.getInputDir();
-    me.x += inp.dx * 180 * dt; me.y += inp.dy * 180 * dt;
-    me.x = Math.max(20, Math.min(this.W - 20, me.x));
-    me.y = Math.max(60, Math.min(this.H - 20, me.y));
-    if (inp.dx || inp.dy) me.angle = Math.atan2(inp.dy, inp.dx);
-    if (this.peerInput) {
-      peer.x += this.peerInput.dx * 180 * dt; peer.y += this.peerInput.dy * 180 * dt;
-      peer.x = Math.max(20, Math.min(this.W - 20, peer.x));
-      peer.y = Math.max(60, Math.min(this.H - 20, peer.y));
-      if (this.peerInput.dx || this.peerInput.dy) peer.angle = Math.atan2(this.peerInput.dy, this.peerInput.dx);
-    }
-    this.attackCd = Math.max(0, this.attackCd - dt);
-    [me, peer].forEach(p => {
-      p.attackTimer = Math.max(0, p.attackTimer - dt);
-      if (p.attackTimer <= 0) p.attacking = false;
-      p.abilityCd = Math.max(0, p.abilityCd - dt);
-      p.abilityReady = p.abilityCd <= 0;
-      if (p.buffs.ira && p.buffs.ira > 0) p.buffs.ira -= dt;
-      if (p.buffs.invisible && p.buffs.invisible > 0) p.buffs.invisible -= dt;
-    });
-    this.spawnTimer -= dt;
-    const spawnInterval = Math.max(0.5, 3 - this.wave * 0.15);
-    if (this.spawnTimer <= 0) { this.spawnTimer = spawnInterval; this.spawnZombie(); }
-    this.entities.forEach(e => {
-      if (e.type === 'zombie') this.updateZombie(e, dt);
-      else if (e.type === 'ally') this.updateAlly(e, dt);
-      else if (e.type === 'projectile') this.updateProjectile(e, dt);
-      else if (e.type === 'turret') this.updateTurret(e, dt);
-      if (e.life !== undefined) { e.life -= dt; if (e.life <= 0) this.entities.delete(e.id); }
-    });
-    [me, peer].forEach(p => {
-      if (p.hp <= 0) return;
-      this.entities.forEach(e => {
-        if (e.type !== 'zombie' || e.hp <= 0) return;
-        const d = Math.hypot(e.x - p.x, e.y - p.y);
-        if (d < 28) { p.hp -= 10 * dt; if (p.hp <= 0) { p.hp = 0; this.checkGameOver(); } }
-      });
-    });
-    this.updateHud(me);
-    this.sendState();
-  }
-  spawnZombie() {
-    const id = 'z' + Date.now() + Math.random();
-    const side = Math.floor(Math.random() * 4);
-    let x, y;
-    if (side === 0) { x = -20; y = Math.random() * this.H; }
-    else if (side === 1) { x = this.W + 20; y = Math.random() * this.H; }
-    else if (side === 2) { x = Math.random() * this.W; y = -20; }
-    else { x = Math.random() * this.W; y = this.H + 20; }
-    const isBoss = Math.random() < 0.05 + this.wave * 0.01;
-    const z = { id, type: 'zombie', x, y, vx: 0, vy: 0, hp: isBoss ? 200 : 30 + this.wave * 5, maxHp: isBoss ? 200 : 30 + this.wave * 5, speed: isBoss ? 40 : 50 + Math.random() * 30, damage: isBoss ? 20 : 10, size: isBoss ? 30 : 16, boss: isBoss, frozen: 0, burning: 0 };
-    this.entities.set(id, z);
-    try { conn.send({ type: 'spawn', entity: z }); } catch (e) {}
-  }
-  updateZombie(z, dt) {
-    if (z.frozen > 0) { z.frozen -= dt; return; }
-    const me = this.entities.get(this.myId);
-    const peer = this.entities.get(this.peerId);
-    const targets = [me, peer].filter(p => p.hp > 0);
-    if (!targets.length) return;
-    let nearest = targets[0], nd = Math.hypot(z.x - nearest.x, z.y - nearest.y);
-    targets.forEach(t => { const d = Math.hypot(z.x - t.x, z.y - t.y); if (d < nd) { nearest = t; nd = d; } });
-    const dx = nearest.x - z.x, dy = nearest.y - z.y;
-    const m = Math.hypot(dx, dy) || 1;
-    z.x += (dx / m) * z.speed * dt; z.y += (dy / m) * z.speed * dt;
-    if (z.burning > 0) { z.hp -= 15 * dt; z.burning -= dt; }
-    if (z.hp <= 0) { this.entities.delete(z.id); this.score += z.boss ? 50 : 5; }
-  }
-  updateAlly(a, dt) {
-    let target = null, nd = 400;
-    this.entities.forEach(e => { if (e.type === 'zombie' && e.hp > 0) { const d = Math.hypot(e.x - a.x, e.y - a.y); if (d < nd) { target = e; nd = d; } } });
-    if (target) {
-      const dx = target.x - a.x, dy = target.y - a.y;
-      const m = Math.hypot(dx, dy) || 1;
-      a.x += (dx / m) * 70 * dt; a.y += (dy / m) * 70 * dt;
-      if (nd < 30) { target.hp -= 20 * dt; if (target.hp <= 0) { this.entities.delete(target.id); this.score += 5; } }
-    } else {
-      const owner = this.entities.get(a.owner);
-      if (owner) { const dx = owner.x - a.x, dy = owner.y - a.y; const m = Math.hypot(dx, dy) || 1; if (m > 60) { a.x += (dx / m) * 90 * dt; a.y += (dy / m) * 90 * dt; } }
-    }
-  }
-  updateProjectile(p, dt) {
-    p.x += p.vx * dt; p.y += p.vy * dt;
-    this.entities.forEach(e => {
-      if (e.type === 'zombie' && e.hp > 0) {
-        const d = Math.hypot(e.x - p.x, e.y - p.y);
-        if (d < (e.size + 6)) {
-          e.hp -= p.damage || 30;
-          if (p.kind === 'ice') e.frozen = 2;
-          if (p.kind === 'fire') e.burning = 3;
-          if (p.kind === 'electric') {
-            this.entities.forEach(e2 => { if (e2.type === 'zombie' && e2 !== e && e2.hp > 0) { const d2 = Math.hypot(e2.x - e.x, e2.y - e.y); if (d2 < 100) e2.hp -= 15; } });
-          }
-          if (e.hp <= 0) { this.entities.delete(e.id); this.score += e.boss ? 50 : 5; }
-          if (p.pierce) return;
-          p.life = 0;
+  <script>
+    // Generator for Digits of Pi using Gibbons' Spigot Algorithm (BigInt)
+    function* piSpigot() {
+      let q = 1n, r = 18n, t = 1n, k = 1n, n = 3n, l = 3n;
+      while (true) {
+        if (4n * q + r - t < n * t) {
+          yield Number(n);
+          let nr = 10n * (r - n * t);
+          n = 10n * (3n * q + r) / t - 10n * n;
+          q = 10n * q;
+          r = nr;
+        } else {
+          let nr = (2n * q + r) * l;
+          let nn = (q * (7n * k) + 2n + r * l) / (t * l);
+          q = q * k;
+          t = t * l;
+          l = l + 2n;
+          k = k + 1n;
+          n = nn;
+          r = nr;
         }
       }
-    });
-  }
-  updateTurret(t, dt) {
-    if (t.hp <= 0) { this.entities.delete(t.id); return; }
-    t.cd = Math.max(0, t.cd - dt);
-    if (t.cd > 0) return;
-    let target = null, nd = 250;
-    this.entities.forEach(e => { if (e.type === 'zombie' && e.hp > 0) { const d = Math.hypot(e.x - t.x, e.y - t.y); if (d < nd) { target = e; nd = d; } } });
-    if (target) {
-      t.cd = 0.5;
-      const p = { id: 'p' + Date.now() + Math.random(), type: 'projectile', x: t.x, y: t.y, vx: (target.x - t.x) / nd * 500, vy: (target.y - t.y) / nd * 500, damage: 10, pierce: false, kind: 'turret', life: 1, owner: t.id };
-      this.entities.set(p.id, p);
-      try { conn.send({ type: 'spawn', entity: p }); } catch (e) {}
     }
-  }
-  doAttack(attackerId) {
-    const a = this.entities.get(attackerId);
-    if (!a) return;
-    const range = a.classDef.id === 'sniper' ? 400 : 60;
-    const damage = a.classDef.id === 'sniper' ? 50 : (a.buffs.ira > 0 ? 30 : 15);
-    this.entities.forEach(e => {
-      if (e.type === 'zombie' && e.hp > 0) {
-        const d = Math.hypot(e.x - a.x, e.y - a.y);
-        if (d < range) {
-          const a2e = Math.atan2(e.y - a.y, e.x - a.x);
-          if (Math.abs(this.angleDiff(a.angle, a2e)) < 0.8) {
-            e.hp -= damage;
-            if (e.hp <= 0) this.onZombieKilled(e, a);
-          }
-        }
-      }
-    });
-  }
-  angleDiff(a, b) { let d = a - b; while (d > Math.PI) d -= Math.PI*2; while (d < -Math.PI) d += Math.PI*2; return d; }
-  onZombieKilled(z, killer) {
-    this.entities.delete(z.id);
-    this.score += z.boss ? 50 : 5;
-    if (this.score > this.wave * 100) { this.wave++; status('¡OLEADA ' + this.wave + '!', 2000); }
-    if (killer.classDef.id === 'necromancer' && Math.random() < 0.5 && !z.boss) {
-      const ally = { id: 'a' + Date.now() + Math.random(), type: 'ally', x: z.x, y: z.y, hp: 30, maxHp: 30, owner: killer.id, size: 14 };
-      this.entities.set(ally.id, ally);
-    }
-  }
-  doAbility(userId) {
-    const u = this.entities.get(userId);
-    if (!u) return;
-    const id = u.classDef.id;
-    if (id === 'soldier') {
-      const cx = u.x + Math.cos(u.angle) * 100, cy = u.y + Math.sin(u.angle) * 100;
-      this.entities.forEach(e => { if (e.type === 'zombie' && e.hp > 0) { const d = Math.hypot(e.x - cx, e.y - cy); if (d < 100) { e.hp -= 60; if (e.hp <= 0) this.onZombieKilled(e, u); } } });
-      this.spawnFx(cx, cy, 100, 'explosion', 0.4);
-    } else if (id === 'necromancer') {
-      let target = null, nd = 200;
-      this.entities.forEach(e => { if (e.type === 'zombie' && e.hp > 0) { const d = Math.hypot(e.x - u.x, e.y - u.y); if (d < nd) { target = e; nd = d; } } });
-      if (target) { target.hp -= 40; u.hp = Math.min(u.maxHp, u.hp + 20); if (target.hp <= 0) this.onZombieKilled(target, u); this.spawnFx(target.x, target.y, 40, 'drain', 0.3); }
-    } else if (id === 'ice') {
-      this.entities.forEach(e => {
-        if (e.type === 'zombie' && e.hp > 0) {
-          const d = Math.hypot(e.x - u.x, e.y - u.y);
-          if (d < 200) { const a = Math.atan2(e.y - u.y, e.x - u.x); if (Math.abs(this.angleDiff(u.angle, a)) < 0.7) { e.frozen = 3; e.hp -= 15; if (e.hp <= 0) this.onZombieKilled(e, u); } }
-        }
-      });
-      this.spawnFx(u.x + Math.cos(u.angle)*100, u.y + Math.sin(u.angle)*100, 200, 'ice', 0.5);
-    } else if (id === 'fire') {
-      this.entities.forEach(e => { if (e.type === 'zombie' && e.hp > 0) { const d = Math.hypot(e.x - u.x, e.y - u.y); if (d < 150) { e.hp -= 25; e.burning = 4; if (e.hp <= 0) this.onZombieKilled(e, u); } } });
-      this.spawnFx(u.x, u.y, 150, 'fire', 0.6);
-    } else if (id === 'medic') {
-      const targets = [this.entities.get(this.myId), this.entities.get(this.peerId)].filter(t => t && t.hp > 0);
-      let best = null, bd = 300;
-      targets.forEach(t => { const d = Math.hypot(t.x - u.x, t.y - u.y); if (d < bd) { best = t; bd = d; } });
-      if (best) { best.hp = Math.min(best.maxHp, best.hp + 40); this.spawnFx(best.x, best.y, 30, 'heal', 0.4); }
-    } else if (id === 'sniper') { this.spawnProjectile(u, 800, 80, true, 'pierce'); }
-    else if (id === 'engineer') {
-      const t = { id: 't' + Date.now(), type: 'turret', x: u.x, y: u.y, hp: 60, owner: userId, life: 15, cd: 0 };
-      this.entities.set(t.id, t);
-    } else if (id === 'shadow') { u.buffs.invisible = 3; u.buffs.ira = 3; }
-    else if (id === 'brawler') { u.buffs.ira = 3; u.buffs.speed = 3; }
-    else if (id === 'electric') {
-      const start = { x: u.x, y: u.y }; let prev = start;
-      this.entities.forEach(e => { if (e.type === 'zombie' && e.hp > 0) { const d = Math.hypot(e.x - prev.x, e.y - prev.y); if (d < 250) { e.hp -= 30; if (e.hp <= 0) this.onZombieKilled(e, u); prev = e; this.spawnFx(e.x, e.y, 20, 'electric', 0.3); } } });
-    }
-  }
-  spawnProjectile(owner, speed, damage, pierce, kind) {
-    const p = { id: 'p' + Date.now() + Math.random(), type: 'projectile', x: owner.x + Math.cos(owner.angle) * 20, y: owner.y + Math.sin(owner.angle) * 20, vx: Math.cos(owner.angle) * speed, vy: Math.sin(owner.angle) * speed, damage, pierce, kind, life: 1.5, owner: owner.id };
-    this.entities.set(p.id, p);
-    try { conn.send({ type: 'spawn', entity: p }); } catch (e) {}
-  }
-  spawnFx(x, y, radius, kind, life) {
-    const f = { id: 'f' + Date.now() + Math.random(), type: 'fx', x, y, radius, kind, life };
-    this.entities.set(f.id, f);
-    try { conn.send({ type: 'spawn', entity: f }); } catch (e) {}
-  }
-  checkGameOver() {
-    const me = this.entities.get(this.myId), peer = this.entities.get(this.peerId);
-    if (me.hp <= 0 && peer.hp <= 0) this.end(false, 'Ambos cayeron...');
-    else if (me.hp <= 0) this.end(false, 'Tu compañero sigue en pie.');
-    else if (peer.hp <= 0) this.end(true, '¡Tu compañero cayó, pero tú sigues!');
-  }
-  end(disco, msg) {
-    this.gameOver = true;
-    clearInterval(this.hostInterval);
-    $('gameOverText').textContent = disco ? 'Desconectado' : 'GAME OVER';
-    $('gameOverSub').textContent = msg || '';
-    showScreen('gameOver');
-  }
-  applyPeerInput(data) {
-    if (!this.isHost) return;
-    if (data.kind === 'move') this.peerInput = data;
-    if (data.kind === 'attack') this.doAttack(this.peerId);
-    if (data.kind === 'ability') this.doAbility(this.peerId);
-  }
-  applyPeerSpawn(data) { this.entities.set(data.entity.id, data.entity); }
-  sendState() {
-    const snap = {
-      type: 'state', t: Date.now(),
-      entities: Array.from(this.entities.values()).map(e => ({
-        id: e.id, type: e.type, x: e.x|0, y: e.y|0, hp: e.hp, maxHp: e.maxHp,
-        angle: e.angle, size: e.size, boss: e.boss, frozen: e.frozen, burning: e.burning,
-        classDef: e.classDef, attacking: e.attacking,
-        abilityCd: e.abilityCd, abilityReady: e.abilityReady,
-        buffInvisible: e.buffs && e.buffs.invisible, buffIra: e.buffs && e.buffs.ira,
-        life: e.life, radius: e.radius, kind: e.kind,
-      })),
-      wave: this.wave, score: this.score,
-    };
-    if (conn && conn.open) { try { conn.send(snap); } catch (e) {} }
-  }
-  applyPeerState(data) {
-    if (this.isHost) return;
-    this.entities.clear();
-    data.entities.forEach(e => { const ent = { ...e, buffs: { invisible: e.buffInvisible, ira: e.buffIra } }; this.entities.set(e.id, ent); });
-    this.wave = data.wave; this.score = data.score;
-    const me = this.entities.get(this.myId);
-    if (me) this.updateHud(me);
-  }
-  updateHud(me) {
-    $('hpBar').style.width = (me.hp / me.maxHp * 100) + '%';
-    $('hpText').textContent = Math.ceil(me.hp);
-    const cd = me.abilityCd, total = me.classDef.cd;
-    $('abilityBar').style.width = (100 - (cd / total * 100)) + '%';
-    $('abilityBar').className = 'bar-fill ' + (me.abilityReady ? 'ability-ready' : 'ability-fill');
-    $('abilityIcon').textContent = me.classDef.emoji;
-    $('waveText').textContent = this.wave;
-    $('scoreText').textContent = this.score;
-  }
-  draw() {
-    const c = this.ctx;
-    c.fillStyle = '#1a1a1a'; c.fillRect(0, 0, this.W, this.H);
-    c.strokeStyle = '#252525'; c.lineWidth = 1;
-    for (let x = 0; x < this.W; x += 40) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, this.H); c.stroke(); }
-    for (let y = 0; y < this.H; y += 40) { c.beginPath(); c.moveTo(0, y); c.lineTo(this.W, y); c.stroke(); }
-    this.entities.forEach(e => {
-      if (e.type === 'fx') {
-        const alpha = Math.min(1, e.life * 2);
-        if (e.kind === 'explosion') { c.fillStyle = 'rgba(255,150,50,' + alpha + ')'; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.2 - e.life*0.4), 0, Math.PI*2); c.fill(); }
-        else if (e.kind === 'drain') { c.fillStyle = 'rgba(180,80,255,' + alpha + ')'; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.2 - e.life*0.4), 0, Math.PI*2); c.fill(); }
-        else if (e.kind === 'ice') { c.fillStyle = 'rgba(120,220,255,' + (alpha*0.6) + ')'; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.2 - e.life*0.4), 0, Math.PI*2); c.fill(); }
-        else if (e.kind === 'fire') { c.fillStyle = 'rgba(255,100,30,' + (alpha*0.7) + ')'; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.2 - e.life*0.4), 0, Math.PI*2); c.fill(); }
-        else if (e.kind === 'heal') { c.fillStyle = 'rgba(120,255,180,' + alpha + ')'; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.2 - e.life*0.4), 0, Math.PI*2); c.fill(); }
-        else if (e.kind === 'electric') { c.fillStyle = 'rgba(255,255,80,' + alpha + ')'; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.5 - e.life*0.4), 0, Math.PI*2); c.fill(); }
-        return;
-      }
-      if (e.type === 'projectile') {
-        c.fillStyle = e.kind === 'ice' ? '#88ddff' : e.kind === 'fire' ? '#ff7733' : e.kind === 'electric' ? '#ffdd44' : e.kind === 'turret' ? '#aaaa66' : '#ffdd55';
-        c.beginPath(); c.arc(e.x, e.y, 6, 0, Math.PI*2); c.fill(); return;
-      }
-      if (e.type === 'turret') { c.fillStyle = '#aa8844'; c.fillRect(e.x - 10, e.y - 10, 20, 20); c.fillStyle = '#ffaa44'; c.beginPath(); c.arc(e.x, e.y, 6, 0, Math.PI*2); c.fill(); return; }
-      if (e.type === 'zombie') {
-        c.fillStyle = e.frozen > 0 ? '#88ccee' : (e.boss ? '#553333' : '#3a5a3a');
-        c.beginPath(); c.arc(e.x, e.y, e.size, 0, Math.PI*2); c.fill();
-        if (e.boss) { c.strokeStyle = '#aa2222'; c.lineWidth = 3; c.beginPath(); c.arc(e.x, e.y, e.size + 4, 0, Math.PI*2); c.stroke(); }
-        if (e.burning > 0) { c.fillStyle = 'rgba(255,100,30,0.5)'; c.beginPath(); c.arc(e.x, e.y, e.size + 3, 0, Math.PI*2); c.fill(); }
-        if (e.hp < e.maxHp) { c.fillStyle = '#300'; c.fillRect(e.x - 16, e.y - e.size - 8, 32, 4); c.fillStyle = '#c33'; c.fillRect(e.x - 16, e.y - e.size - 8, 32 * (e.hp / e.maxHp), 4); }
-        c.fillStyle = '#ff3333'; c.fillRect(e.x - 4, e.y - 2, 3, 3); c.fillRect(e.x + 1, e.y - 2, 3, 3); return;
-      }
-      if (e.type === 'ally') {
-        c.fillStyle = '#aa66ff'; c.beginPath(); c.arc(e.x, e.y, e.size, 0, Math.PI*2); c.fill();
-        c.fillStyle = '#fff'; c.fillRect(e.x - 4, e.y - 2, 3, 3); c.fillRect(e.x + 1, e.y - 2, 3, 3);
-        c.strokeStyle = '#552288'; c.lineWidth = 2; c.beginPath(); c.moveTo(e.x - 6, e.y - 6); c.lineTo(e.x + 6, e.y + 6); c.moveTo(e.x + 6, e.y - 6); c.lineTo(e.x - 6, e.y + 6); c.stroke(); return;
-      }
-      const cls = e.classDef; if (!cls) return;
-      const invisible = e.buffs && e.buffs.invisible > 0 && !e.isMe;
-      c.globalAlpha = invisible ? 0.3 : 1;
-      c.fillStyle = cls.color; c.beginPath(); c.arc(e.x, e.y, 18, 0, Math.PI*2); c.fill();
-      c.strokeStyle = e.isMe ? '#fff' : '#ffdd55'; c.lineWidth = e.isMe ? 3 : 2; c.stroke();
-      const wx = e.x + Math.cos(e.angle) * 22, wy = e.y + Math.sin(e.angle) * 22;
-      c.strokeStyle = '#ccc'; c.lineWidth = 3; c.beginPath(); c.moveTo(e.x, e.y); c.lineTo(wx, wy); c.stroke();
-      if (e.attacking) { c.fillStyle = 'rgba(255,255,255,0.4)'; c.beginPath(); c.arc(e.x, e.y, 50, e.angle - 0.6, e.angle + 0.6); c.lineTo(e.x, e.y); c.fill(); }
-      c.font = '18px sans-serif'; c.textAlign = 'center'; c.fillText(cls.emoji, e.x, e.y + 6);
-      c.fillStyle = '#fff'; c.font = '10px sans-serif'; c.fillText(e.isMe ? 'TÚ' : 'COMP', e.x, e.y - 28);
-      c.fillStyle = '#300'; c.fillRect(e.x - 18, e.y - 24, 36, 4);
-      c.fillStyle = e.hp > 30 ? '#5c5' : '#c55'; c.fillRect(e.x - 18, e.y - 24, 36 * (e.hp / e.maxHp), 4);
-      c.globalAlpha = 1;
-    });
-  }
-}
 
-$('btnRestart').onclick = () => {
-  try { if (conn && conn.open) conn.send({ type: 'restart' }); } catch (e) {}
-  showClassSelect();
-  myClass = null; bothReady = false; peerClass = null; peerClassPending = false;
-};
-$('btnMenu').onclick = () => location.reload();
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && confirm('¿Salir al menú?')) location.reload(); });
-</script>
+    let generator = piSpigot();
+    // First digit is 3
+    generator.next(); 
+
+    let decimalCount = 0;
+    let piString = "3";
+    let autoClickInterval = null;
+
+    const piContainer = document.getElementById("pi-container");
+    const piText = document.getElementById("pi-text");
+    const counterDisplay = document.getElementById("counter");
+    const btnAdd = document.getElementById("btn-add");
+    const btnAutoClick = document.getElementById("btn-autoclick");
+    const btnReset = document.getElementById("btn-reset");
+    const speedRange = document.getElementById("speed-range");
+    const speedDisplay = document.getElementById("speed-display");
+
+    function addNextDecimal() {
+      const nextDigit = generator.next().value;
+      if (decimalCount === 0) {
+        piString += ".";
+      }
+      decimalCount++;
+      piString += nextDigit;
+
+      piText.innerText = piString;
+      counterDisplay.innerText = decimalCount.toLocaleString();
+
+      // Auto scroll to end
+      piContainer.scrollTop = piContainer.scrollHeight;
+    }
+
+    function toggleAutoclicker() {
+      if (autoClickInterval) {
+        // Stop
+        clearInterval(autoClickInterval);
+        autoClickInterval = null;
+        btnAutoClick.innerText = "Iniciar Autoclicker";
+        btnAutoClick.className = "btn btn-success";
+      } else {
+        // Start
+        const speed = parseInt(speedRange.value);
+        autoClickInterval = setInterval(addNextDecimal, speed);
+        btnAutoClick.innerText = "Detener Autoclicker";
+        btnAutoClick.className = "btn btn-danger";
+      }
+    }
+
+    btnAdd.addEventListener("click", () => {
+      addNextDecimal();
+    });
+
+    btnAutoClick.addEventListener("click", () => {
+      toggleAutoclicker();
+    });
+
+    speedRange.addEventListener("input", (e) => {
+      const speed = e.target.value;
+      speedDisplay.innerText = speed + " ms";
+      if (autoClickInterval) {
+        // Restart interval with new speed
+        clearInterval(autoClickInterval);
+        autoClickInterval = setInterval(addNextDecimal, speed);
+      }
+    });
+
+    btnReset.addEventListener("click", () => {
+      if (autoClickInterval) {
+        toggleAutoclicker();
+      }
+      generator = piSpigot();
+      generator.next();
+      decimalCount = 0;
+      piString = "3";
+      piText.innerText = piString;
+      counterDisplay.innerText = "0";
+    });
+  </script>
 </body>
 </html>
