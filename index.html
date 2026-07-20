@@ -2,37 +2,55 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Escape del Sótano - Multijugador v3</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', monospace; }
-  body { background: #000; color: #eee; overflow: hidden; user-select: none; }
+  body { background: #000; color: #eee; overflow: hidden; user-select: none; -webkit-touch-callout: none; }
   #menu, #lobby, #game { position: absolute; top:0; left:0; width:100vw; height:100vh; }
   #menu, #lobby { display:flex; flex-direction:column; align-items:center; justify-content:center; background:radial-gradient(circle, #1a0a0a 0%, #000 100%); z-index:10; }
   #game { display:none; }
-  h1 { color:#ffcc00; font-size:42px; margin-bottom:20px; text-shadow:3px 3px 0 #000, 0 0 20px #ff6600; letter-spacing:2px; }
-  h2 { color:#ff6666; margin-bottom:10px; text-shadow:2px 2px #000; }
-  input, button { padding:12px 24px; margin:6px; font-size:16px; border:2px solid #ffcc00; background:#222; color:#fff; cursor:pointer; font-family:inherit; transition:all 0.2s; }
+  h1 { color:#ffcc00; font-size:42px; margin-bottom:20px; text-shadow:3px 3px 0 #000, 0 0 20px #ff6600; letter-spacing:2px; text-align: center; }
+  h2 { color:#ff6666; margin-bottom:10px; text-shadow:2px 2px #000; text-align: center; }
+  input, button { padding:12px 24px; margin:6px; font-size:16px; border:2px solid #ffcc00; background:#222; color:#fff; cursor:pointer; font-family:inherit; transition:all 0.2s; border-radius: 8px; }
   input:focus { outline:none; background:#333; box-shadow:0 0 10px #ffcc00; }
   button:hover { background:#ffcc00; color:#000; transform:scale(1.05); box-shadow:0 0 15px #ffcc00; }
-  #roomId { font-size:24px; color:#00ff00; background:#000; padding:12px 20px; border:2px dashed #00ff00; margin:10px; text-shadow:0 0 10px #00ff00; }
-  #playersList { margin:15px; padding:15px; background:rgba(0,0,0,0.8); border:2px solid #555; min-width:320px; }
+  #roomId { font-size:24px; color:#00ff00; background:#000; padding:12px 20px; border:2px dashed #00ff00; margin:10px; text-shadow:0 0 10px #00ff00; text-align: center; word-break: break-all; }
+  #playersList { margin:15px; padding:15px; background:rgba(0,0,0,0.8); border:2px solid #555; min-width:320px; border-radius: 10px; }
   .playerItem { padding:6px; color:#ffcc00; border-bottom:1px solid #333; }
-  canvas { display:block; cursor:crosshair; image-rendering: pixelated; image-rendering: crisp-edges; }
-  #hud { position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.85); padding:12px; border:2px solid #ffcc00; z-index:5; min-width:180px; box-shadow:0 0 20px rgba(255,204,0,0.3); }
+  
+  canvas { display:block; cursor:crosshair; margin:auto; touch-action: none; image-rendering: pixelated; }
+  
+  #hud { position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.85); padding:12px; border:2px solid #ffcc00; z-index:5; min-width:180px; box-shadow:0 0 20px rgba(255,204,0,0.3); border-radius: 10px; pointer-events: none; }
   .lifeRow { margin:4px 0; color:#fff; font-size:14px; }
   .heart { color:#ff3333; text-shadow:0 0 5px #ff0000; }
-  #dialog { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:linear-gradient(135deg, #1a0a0a, #000); border:4px solid #ffcc00; padding:25px; z-index:20; display:none; min-width:450px; text-align:center; box-shadow:0 0 40px rgba(255,204,0,0.5); }
+  #dialog { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:linear-gradient(135deg, #1a0a0a, #000); border:4px solid #ffcc00; padding:25px; z-index:20; display:none; min-width:450px; text-align:center; box-shadow:0 0 40px rgba(255,204,0,0.5); border-radius: 15px; }
   #dialog h3 { color:#ff6666; margin-bottom:15px; font-size:22px; text-shadow:0 0 10px #ff0000; }
-  #dialog input { width:100%; }
-  #votePanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:linear-gradient(135deg, #0a1a0a, #000); border:4px solid #00ff00; padding:25px; z-index:20; display:none; text-align:center; box-shadow:0 0 40px rgba(0,255,0,0.5); }
-  #msgBox { position:absolute; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.95); color:#ffcc00; padding:12px 24px; border:2px solid #ffcc00; z-index:15; display:none; font-size:18px; text-shadow:0 0 10px #ffcc00; box-shadow:0 0 20px rgba(255,204,0,0.5); }
-  #timer { position:absolute; top:10px; left:10px; color:#ff3333; font-size:22px; background:rgba(0,0,0,0.85); padding:10px 15px; border:2px solid #ff3333; z-index:5; text-shadow:0 0 10px #ff0000; box-shadow:0 0 15px rgba(255,0,0,0.3); }
-  #weaponInfo { position:absolute; top:60px; left:10px; color:#00ff00; font-size:16px; background:rgba(0,0,0,0.85); padding:10px 15px; border:2px solid #00ff00; z-index:5; display:none; text-shadow:0 0 10px #00ff00; }
-  #sitBtn { position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.85); color:#ffcc00; padding:10px 15px; border:2px solid #ffcc00; z-index:5; font-size:14px; cursor:pointer; }
+  #dialog input { width:100%; font-size: 18px; text-align: center; }
+  #votePanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:linear-gradient(135deg, #0a1a0a, #000); border:4px solid #00ff00; padding:25px; z-index:20; display:none; text-align:center; box-shadow:0 0 40px rgba(0,255,0,0.5); border-radius: 15px; }
+  #msgBox { position:absolute; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.95); color:#ffcc00; padding:12px 24px; border:2px solid #ffcc00; z-index:15; display:none; font-size:18px; text-shadow:0 0 10px #ffcc00; box-shadow:0 0 20px rgba(255,204,0,0.5); border-radius: 10px; pointer-events: none; opacity: 0; transition: opacity 0.3s ease-in-out; }
+  #timer { position:absolute; top:10px; left:10px; color:#ff3333; font-size:22px; background:rgba(0,0,0,0.85); padding:10px 15px; border:2px solid #ff3333; z-index:5; text-shadow:0 0 10px #ff0000; box-shadow:0 0 15px rgba(255,0,0,0.3); border-radius: 10px; pointer-events: none; }
+  #weaponInfo { position:absolute; top:65px; left:10px; color:#00ff00; font-size:16px; background:rgba(0,0,0,0.85); padding:10px 15px; border:2px solid #00ff00; z-index:5; display:none; text-shadow:0 0 10px #00ff00; border-radius: 10px; pointer-events: none; }
+  #sitBtn { position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.85); color:#ffcc00; padding:10px 15px; border:2px solid #ffcc00; z-index:5; font-size:16px; cursor:pointer; font-weight: bold; }
   #sitBtn:hover { background:#ffcc00; color:#000; }
-  #soundToggle { position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85); color:#ffcc00; padding:8px 12px; border:2px solid #ffcc00; z-index:5; cursor:pointer; }
+  #soundToggle { position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85); color:#ffcc00; padding:8px 12px; border:2px solid #ffcc00; z-index:5; cursor:pointer; font-size: 20px; }
   #status { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); color:#888; font-size:12px; }
+
+  /* Adaptación para Celulares */
+  @media (max-width: 768px) {
+    h1 { font-size: 28px; }
+    h2 { font-size: 18px; }
+    input, button { padding: 10px 16px; font-size: 14px; }
+    #playersList { min-width: 90%; }
+    #hud { bottom: 65px; left: 5px; right: auto; min-width: 140px; padding: 8px; }
+    #timer { font-size: 16px; padding: 8px; }
+    #weaponInfo { top: 50px; font-size: 14px; padding: 8px; }
+    #dialog { width: 95%; min-width: 0; top: 35%; padding: 15px; } /* Más arriba para que no lo tape el teclado */
+    #votePanel { width: 95%; min-width: 0; padding: 15px; }
+    #sitBtn { bottom: 5px; left: 5px; width: calc(100% - 10px); padding: 15px; text-align: center; font-size: 18px; box-shadow: 0 0 15px rgba(0,0,0,0.8); }
+    #msgBox { width: 90%; text-align: center; font-size: 14px; }
+  }
 </style>
 </head>
 <body>
@@ -43,11 +61,11 @@
   <input type="text" id="playerName" maxlength="12" placeholder="Tu nombre...">
   <button onclick="createRoom()">🏠 Crear Sala (Host)</button>
   <button onclick="showJoin()">🔗 Unirse a Sala</button>
-  <div id="joinBox" style="display:none; margin-top:10px;">
-    <input type="text" id="joinId" placeholder="ID de la sala...">
+  <div id="joinBox" style="display:none; margin-top:10px; text-align: center;">
+    <input type="text" id="joinId" placeholder="ID de la sala..."><br>
     <button onclick="joinRoom()">Entrar</button>
   </div>
-  <p style="color:#888; margin-top:20px; font-size:12px;">🔊 Usa audífonos para mejor experiencia</p>
+  <p style="color:#888; margin-top:20px; font-size:12px; text-align:center;">🔊 Usa audífonos para mejor experiencia<br>🕹️ Soporta toques en celular</p>
 </div>
 
 <div id="lobby" style="display:none;">
@@ -55,7 +73,7 @@
   <div id="roomId"></div>
   <div id="playersList"></div>
   <div id="hostControls" style="display:none;">
-    <button onclick="startGame()" style="background:#00ff00; color:#000; font-size:20px;">▶ INICIAR PARTIDA</button>
+    <button onclick="startGame()" style="background:#00ff00; color:#000; font-size:20px; padding: 15px 30px;">▶ INICIAR PARTIDA</button>
   </div>
   <p style="color:#888; margin-top:20px;">Esperando jugadores... (máx. 4)</p>
   <div id="status">Conectando...</div>
@@ -72,7 +90,7 @@
   <div id="dialog">
     <h3>🦉 DUOLINGO PREGUNTA:</h3>
     <p id="question" style="font-size:20px; color:#fff; margin:15px 0;"></p>
-    <input type="text" id="answer" placeholder="Tu respuesta en inglés...">
+    <input type="text" id="answer" placeholder="Tu respuesta...">
     <button onclick="submitAnswer()">Responder</button>
   </div>
   <div id="votePanel">
@@ -91,7 +109,10 @@ let soundEnabled = true;
 let ambientOsc = null;
 
 function initAudio() {
-  if (audioCtx) return;
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return;
+  }
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     startAmbient();
@@ -113,6 +134,7 @@ function startAmbient() {
 
 function playSound(type) {
   if (!audioCtx || !soundEnabled) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
   const t = audioCtx.currentTime;
   const g = audioCtx.createGain();
   g.connect(audioCtx.destination);
@@ -186,6 +208,7 @@ function playSound(type) {
 }
 
 function toggleSound() {
+  initAudio();
   soundEnabled = !soundEnabled;
   document.getElementById('soundToggle').textContent = soundEnabled ? '🔊' : '🔇';
   if (ambientOsc) ambientOsc.gain.gain.value = soundEnabled ? 0.03 : 0;
@@ -193,8 +216,8 @@ function toggleSound() {
 
 // ============ VARIABLES GLOBALES ============
 let peer = null;
-let conn = null; // Conexión al host (si soy cliente)
-let connections = []; // Conexiones a clientes (si soy host)
+let conn = null; // Conexión al host
+let connections = []; // Conexiones a clientes
 let isHost = false;
 let myName = '';
 let myId = '';
@@ -278,14 +301,9 @@ function createRoom() {
     document.getElementById('status').textContent = 'Servidor listo. Esperando jugadores...';
     
     players[myId] = {
-      name: myName, 
-      x: 200, y: 400, 
-      targetX: 200, targetY: 400, 
-      lives: 2, weapon: null, 
-      alive: true, 
-      color: PLAYER_COLORS[0], 
-      sitting: false, 
-      frame: 0, facing: 1
+      name: myName, x: 200, y: 400, targetX: 200, targetY: 400, 
+      lives: 2, weapon: null, alive: true, color: PLAYER_COLORS[0], 
+      sitting: false, frame: 0, facing: 1
     };
     updatePlayersList();
   });
@@ -293,18 +311,13 @@ function createRoom() {
   peer.on('connection', (c) => {
     const setupConn = () => {
       if (Object.keys(players).length >= 4) { 
-        c.send({type:'full'}); 
-        setTimeout(() => c.close(), 100); 
-        return; 
+        c.send({type:'full'}); setTimeout(() => c.close(), 100); return; 
       }
-      
       if (!connections.includes(c)) connections.push(c);
-      
       c.on('data', (data) => handleMsg(data, c));
     };
 
-    if (c.open) setupConn();
-    else c.on('open', setupConn);
+    if (c.open) setupConn(); else c.on('open', setupConn);
     
     c.on('close', () => {
       const playerId = c.peer;
@@ -315,16 +328,9 @@ function createRoom() {
       }
       connections = connections.filter(conn => conn !== c);
     });
-
-    c.on('error', (err) => {
-      console.log('Error de conexión:', err);
-    });
   });
   
-  peer.on('error', (err) => {
-    console.error(err);
-    alert('Error al crear sala: ' + err.type);
-  });
+  peer.on('error', (err) => { alert('Error al crear sala: ' + err.type); });
 }
 
 function joinRoom() {
@@ -334,96 +340,50 @@ function joinRoom() {
   if (!myName || !roomId) { alert('Completa los campos'); return; }
   
   document.getElementById('status').textContent = 'Buscando sala...';
-  
   peer = new Peer(peerConfig);
   
   peer.on('open', (id) => {
     myId = id;
-    conn = peer.connect(roomId, {
-      metadata: { name: myName }
-    });
+    conn = peer.connect(roomId, { metadata: { name: myName } });
     
     const setupConn = () => {
       document.getElementById('menu').style.display = 'none';
       document.getElementById('lobby').style.display = 'flex';
       document.getElementById('roomId').textContent = 'Conectado a: ' + roomId;
       document.getElementById('status').textContent = 'Conectado. Esperando inicio...';
-      
-      // Enviar datos de unión al host
       conn.send({type:'join', name: myName, id: myId});
-      
       conn.on('data', (data) => handleMsg(data));
     };
 
-    if (conn.open) setupConn();
-    else conn.on('open', setupConn);
-    
-    conn.on('error', (err) => {
-      alert('Error de conexión: ' + err);
-      location.reload();
-    });
-    
-    conn.on('close', () => {
-      alert('Conexión perdida con el host');
-      location.reload();
-    });
+    if (conn.open) setupConn(); else conn.on('open', setupConn);
+    conn.on('error', (err) => { alert('Error de conexión: ' + err); location.reload(); });
+    conn.on('close', () => { alert('Conexión perdida con el host'); location.reload(); });
   });
   
-  peer.on('error', (err) => {
-    alert('Error al conectar: ' + err.type);
-  });
+  peer.on('error', (err) => { alert('Error al conectar: ' + err.type); });
 }
 
 function broadcast(data, excludeConn = null) {
-  connections.forEach(c => { 
-    if (c.open && c !== excludeConn) c.send(data); 
-  });
+  connections.forEach(c => { if (c.open && c !== excludeConn) c.send(data); });
 }
 
-// ============ MENSAJERÍA ROBUSTA ============
+// ============ MENSAJERÍA ============
 function handleMsg(data, senderConn = null) {
-  if (data.type === 'full') { 
-    alert('Sala llena'); 
-    location.reload(); 
-    return; 
-  }
+  if (data.type === 'full') { alert('Sala llena'); location.reload(); return; }
   
   if (data.type === 'join') {
     if (!isHost) return;
-    if (Object.keys(players).length >= 4) {
-      if (senderConn) senderConn.send({type:'full'});
-      return;
-    }
-    
+    if (Object.keys(players).length >= 4) { if (senderConn) senderConn.send({type:'full'}); return; }
     const colorIdx = Object.keys(players).length;
     players[data.id] = {
-      name: data.name, 
-      x: 200 + colorIdx*50, y: 400, 
-      targetX: 200+colorIdx*50, targetY: 400, 
-      lives: 2, weapon: null, 
-      alive: true, 
-      color: PLAYER_COLORS[colorIdx % PLAYER_COLORS.length], 
+      name: data.name, x: 200 + colorIdx*50, y: 400, targetX: 200+colorIdx*50, targetY: 400, 
+      lives: 2, weapon: null, alive: true, color: PLAYER_COLORS[colorIdx % PLAYER_COLORS.length], 
       sitting: false, frame: 0, facing: 1
     };
-    
     updatePlayersList();
-    
-    // Enviar estado actual completo al nuevo jugador
     if (senderConn) {
-      senderConn.send({
-        type:'sync', 
-        players: players, 
-        chairs: chairs,
-        boxes: boxes,
-        duolingoTimer: duolingoTimer,
-        gameStarted: gameStarted,
-        duolingo: duolingo,
-        voting: voting,
-        fightMode: fightMode
-      });
+      senderConn.send({ type:'sync', players: players, chairs: chairs, boxes: boxes, duolingoTimer: duolingoTimer, gameStarted: gameStarted, duolingo: duolingo, voting: voting, fightMode: fightMode });
     }
-    
-    // Avisar a todos del nuevo jugador
     broadcast({type:'sync', players: players});
   }
   
@@ -435,23 +395,17 @@ function handleMsg(data, senderConn = null) {
     if (data.duolingo !== undefined) duolingo = data.duolingo;
     if (data.voting !== undefined) voting = data.voting;
     if (data.fightMode !== undefined) fightMode = data.fightMode;
-    
     if (data.gameStarted && !gameStarted) {
       gameStarted = true;
       document.getElementById('lobby').style.display = 'none';
       document.getElementById('game').style.display = 'block';
-      resizeCanvas();
-      gameLoop();
-      startTimer();
+      resizeCanvas(); gameLoop(); startTimer();
     }
     updatePlayersList();
   }
   
   if (data.type === 'move') {
-    if (players[data.id]) {
-      players[data.id].targetX = data.x;
-      players[data.id].targetY = data.y;
-    }
+    if (players[data.id]) { players[data.id].targetX = data.x; players[data.id].targetY = data.y; }
     if (isHost) broadcast(data, senderConn);
   }
   
@@ -461,10 +415,8 @@ function handleMsg(data, senderConn = null) {
       if (data.sitting && data.chairIdx !== undefined) {
         const chair = chairs[data.chairIdx];
         if (chair) { 
-          players[data.id].x = chair.x; 
-          players[data.id].y = chair.y; 
-          players[data.id].targetX = chair.x;
-          players[data.id].targetY = chair.y;
+          players[data.id].x = chair.x; players[data.id].y = chair.y; 
+          players[data.id].targetX = chair.x; players[data.id].targetY = chair.y;
         }
       }
     }
@@ -472,58 +424,37 @@ function handleMsg(data, senderConn = null) {
   }
   
   if (data.type === 'start') {
-    gameStarted = true;
-    players = data.players;
-    boxes = data.boxes;
-    chairs = data.chairs;
+    gameStarted = true; players = data.players; boxes = data.boxes; chairs = data.chairs;
     document.getElementById('lobby').style.display = 'none';
     document.getElementById('game').style.display = 'block';
-    resizeCanvas();
-    gameLoop();
-    startTimer();
+    resizeCanvas(); gameLoop(); startTimer();
   }
   
   if (data.type === 'duolingo_spawn') {
-    duolingo = data.duolingo;
-    playSound('duo_spawn');
-    showMsg('🦉 ¡DUOLINGO HA LLEGADO!');
-    screenShake = 20;
+    duolingo = data.duolingo; playSound('duo_spawn'); showMsg('🦉 ¡DUOLINGO HA LLEGADO!'); screenShake = 20;
   }
   
-  if (data.type === 'duolingo_move') {
-    duolingo = data.duolingo;
-  }
+  if (data.type === 'duolingo_move') { duolingo = data.duolingo; }
   
   if (data.type === 'question') {
-    if (players[myId] && players[myId].sitting) {
-      showMsg('🪑 Estás sentado, Duolingo te ignora...');
-      return;
-    }
+    if (players[myId] && players[myId].sitting) { showMsg('🪑 Estás sentado, Duolingo te ignora...'); return; }
     currentQuestion = data.question;
     document.getElementById('question').textContent = currentQuestion.q;
     document.getElementById('dialog').style.display = 'block';
     document.getElementById('answer').value = '';
-    document.getElementById('answer').focus();
+    // En móviles, hacer focus despliega el teclado molesto de golpe, lo removemos como auto-focus
   }
   
-  if (data.type === 'submit_answer') {
-    if (isHost) checkAnswer(data.id, data.answer);
-  }
+  if (data.type === 'submit_answer') { if (isHost) checkAnswer(data.id, data.answer); }
 
   if (data.type === 'answer_result') {
     document.getElementById('dialog').style.display = 'none';
     if (data.correct) {
-      playSound('correct');
-      showMsg(`✅ ¡${players[data.id]?.name || 'Alguien'} respondió bien! Duolingo se retira...`);
+      playSound('correct'); showMsg(`✅ ¡${players[data.id]?.name || 'Alguien'} respondió bien! Duolingo se retira...`);
     } else {
       playSound('wrong');
-      if (data.id === myId) {
-        showMsg('❌ ¡Incorrecto! Pierdes una vida');
-        screenShake = 15;
-      } else {
-        showMsg(`❌ ¡${players[data.id]?.name} se equivocó!`);
-      }
-      
+      if (data.id === myId) { showMsg('❌ ¡Incorrecto! Pierdes una vida'); screenShake = 15; }
+      else { showMsg(`❌ ¡${players[data.id]?.name} se equivocó!`); }
       if (players[data.id]) {
         players[data.id].lives--;
         if (players[data.id].lives <= 0) {
@@ -545,17 +476,12 @@ function handleMsg(data, senderConn = null) {
   if (data.type === 'open_box') {
     const box = boxes.find(b => b.id === data.boxId);
     if (box && !box.opened) {
-      box.opened = true;
-      box.openTime = Date.now();
-      playSound('box');
+      box.opened = true; box.openTime = Date.now(); playSound('box');
       if (data.weapon) {
         players[data.playerId].weapon = data.weapon;
-        if (data.playerId === myId) {
-          playSound('weapon');
-          showMsg('🎁 ¡Encontraste un ' + data.weapon + '!');
-        }
+        if (data.playerId === myId) { playSound('weapon'); showMsg('🎁 ¡Encontraste un ' + data.weapon + '!'); }
       } else {
-        showMsg('📦 Caja vacía...');
+        if (data.playerId === myId) showMsg('📦 Caja vacía...');
       }
       for (let i = 0; i < 15; i++) {
         particles.push({x: box.x+25, y: box.y+25, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4 - 2, life: 40, color: data.weapon ? '#ffcc00' : '#8b5a2b'});
@@ -563,57 +489,34 @@ function handleMsg(data, senderConn = null) {
     }
   }
   
-  if (data.type === 'boxes_respawn') {
-    boxes = data.boxes;
-    showMsg('📦 ¡Las cajas han reaparecido!');
-    playSound('box');
-  }
+  if (data.type === 'boxes_respawn') { boxes = data.boxes; showMsg('📦 ¡Las cajas han reaparecido!'); playSound('box'); }
   
   if (data.type === 'vote_start') {
-    voting = true;
-    votes = {};
-    document.getElementById('votePanel').style.display = 'block';
-    updateVoteCount();
+    voting = true; votes = {};
+    document.getElementById('votePanel').style.display = 'block'; updateVoteCount();
   }
   
   if (data.type === 'vote') {
-    votes[data.id] = data.vote;
-    updateVoteCount();
+    votes[data.id] = data.vote; updateVoteCount();
     if (isHost) {
       broadcast(data, senderConn);
-      if (Object.keys(votes).length === Object.keys(players).filter(id => players[id].alive).length) {
-        resolveVote();
-      }
+      if (Object.keys(votes).length === Object.keys(players).filter(id => players[id].alive).length) { resolveVote(); }
     }
   }
   
   if (data.type === 'vote_result') {
-    document.getElementById('votePanel').style.display = 'none';
-    voting = false;
-    if (data.fight) {
-      fightMode = true;
-      showMsg('⚔️ ¡MODO COMBATE!');
-    } else {
-      showMsg('🏃 Duolingo hace su pregunta...');
-    }
+    document.getElementById('votePanel').style.display = 'none'; voting = false;
+    if (data.fight) { fightMode = true; showMsg('⚔️ ¡MODO COMBATE!'); }
+    else { showMsg('🏃 Duolingo hace su pregunta...'); }
   }
   
   if (data.type === 'fight_attack') {
     if (duolingo) {
-      duolingo.hp -= data.damage;
-      duolingo.hitFlash = 10;
-      playSound('hit');
-      screenShake = 8;
-      for (let i = 0; i < 10; i++) {
-        particles.push({x: duolingo.x, y: duolingo.y, vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6, life: 30, color: '#58cc02'});
-      }
+      duolingo.hp -= data.damage; duolingo.hitFlash = 10; playSound('hit'); screenShake = 8;
+      for (let i = 0; i < 10; i++) particles.push({x: duolingo.x, y: duolingo.y, vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6, life: 30, color: '#58cc02'});
       if (duolingo.hp <= 0) {
-        playSound('correct');
-        showMsg('🎉 ¡DERROTASTE A DUOLINGO!');
-        duolingo = null;
-        fightMode = false;
-        resetTimer();
-        screenShake = 25;
+        playSound('correct'); showMsg('🎉 ¡DERROTASTE A DUOLINGO!');
+        duolingo = null; fightMode = false; resetTimer(); screenShake = 25;
       }
     }
     if (isHost) broadcast(data, senderConn);
@@ -621,8 +524,7 @@ function handleMsg(data, senderConn = null) {
   
   if (data.type === 'player_died') {
     if (players[data.id]) {
-      players[data.id].lives = 0;
-      players[data.id].alive = false;
+      players[data.id].lives = 0; players[data.id].alive = false;
       if (data.id === myId) playSound('death');
       showMsg('💀 ' + data.name + ' ha muerto');
     }
@@ -632,95 +534,79 @@ function handleMsg(data, senderConn = null) {
 function updatePlayersList() {
   const list = document.getElementById('playersList');
   list.innerHTML = '<h3>Jugadores (' + Object.keys(players).length + '/4):</h3>';
-  Object.values(players).forEach(p => {
-    list.innerHTML += '<div class="playerItem">● ' + p.name + '</div>';
-  });
+  Object.values(players).forEach(p => { list.innerHTML += '<div class="playerItem">● ' + p.name + '</div>'; });
 }
 
 function updateVoteCount() {
   const total = Object.keys(players).filter(id => players[id].alive).length;
-  const counted = Object.keys(votes).length;
-  document.getElementById('voteCount').textContent = 'Votos: ' + counted + '/' + total;
+  document.getElementById('voteCount').textContent = 'Votos: ' + Object.keys(votes).length + '/' + total;
 }
 
 // ============ INICIO DEL JUEGO ============
 function startGame() {
   boxes = [];
   for (let i = 0; i < 8; i++) {
-    boxes.push({
-      id: i,
-      x: 100 + Math.random() * (WORLD_W - 200),
-      y: 150 + Math.random() * (WORLD_H - 300),
-      w: 50, h: 50,
-      opened: false
-    });
+    boxes.push({ id: i, x: 100 + Math.random()*(WORLD_W-200), y: 150 + Math.random()*(WORLD_H-300), w: 50, h: 50, opened: false });
   }
   chairs = [
-    {x: 150, y: 200, idx: 0},
-    {x: WORLD_W - 150, y: 200, idx: 1},
-    {x: 150, y: WORLD_H - 200, idx: 2},
-    {x: WORLD_W - 150, y: WORLD_H - 200, idx: 3}
+    {x: 150, y: 200, idx: 0}, {x: WORLD_W - 150, y: 200, idx: 1},
+    {x: 150, y: WORLD_H - 200, idx: 2}, {x: WORLD_W - 150, y: WORLD_H - 200, idx: 3}
   ];
-  
   const startData = {type:'start', players: players, boxes: boxes, chairs: chairs};
-  broadcast(startData);
-  handleMsg(startData);
+  broadcast(startData); handleMsg(startData);
 }
 
-// ============ CANVAS Y DIBUJO ============
+// ============ CANVAS Y DIBUJO (QoL Táctil/Visual) ============
 function resizeCanvas() {
   const scale = Math.min(window.innerWidth / WORLD_W, window.innerHeight / WORLD_H);
-  canvas.width = WORLD_W * scale;
-  canvas.height = WORLD_H * scale;
-  canvas.style.margin = 'auto';
+  const dpr = window.devicePixelRatio || 1; // Para que se vea en HD en celulares
+  
+  canvas.width = WORLD_W * scale * dpr;
+  canvas.height = WORLD_H * scale * dpr;
+  canvas.style.width = (WORLD_W * scale) + 'px';
+  canvas.style.height = (WORLD_H * scale) + 'px';
+  
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(scale * dpr, scale * dpr);
   ctx.imageSmoothingEnabled = false;
 }
 window.addEventListener('resize', () => { if (gameStarted) resizeCanvas(); });
 
-canvas.addEventListener('click', e => {
+// USAMOS POINTERDOWN: Soporta ratón de PC y toques en pantalla celular inmediatamente
+canvas.addEventListener('pointerdown', e => {
   initAudio();
   if (!gameStarted || !players[myId] || !players[myId].alive) return;
   if (players[myId].sitting) return;
   
   const rect = canvas.getBoundingClientRect();
-  const scale = canvas.width / WORLD_W;
+  const scale = rect.width / WORLD_W;
   const x = (e.clientX - rect.left) / scale;
   const y = (e.clientY - rect.top) / scale;
   
   let satOnChair = false;
   chairs.forEach((chair, idx) => {
     const dist = Math.hypot(x - chair.x, y - chair.y);
-    if (dist < 40) {
+    if (dist < 60) { // ZONA DE TOQUE MÁS AMPLIA PARA CELULARES
       const myDist = Math.hypot(players[myId].x - chair.x, players[myId].y - chair.y);
-      if (myDist < 80) {
-        players[myId].sitting = true;
-        players[myId].x = chair.x;
-        players[myId].y = chair.y;
-        players[myId].targetX = chair.x;
-        players[myId].targetY = chair.y;
-        satOnChair = true;
-        playSound('sit');
+      if (myDist < 120) {
+        players[myId].sitting = true; players[myId].x = chair.x; players[myId].y = chair.y;
+        players[myId].targetX = chair.x; players[myId].targetY = chair.y; satOnChair = true; playSound('sit');
         const data = {type:'sit', id: myId, sitting: true, chairIdx: idx};
-        if (isHost) broadcast(data);
-        else conn.send(data);
+        if (isHost) broadcast(data); else conn.send(data);
       }
     }
   });
   
   if (satOnChair) return;
   
-  players[myId].targetX = x;
-  players[myId].targetY = y;
-  
-  if (isHost) broadcast({type:'move', id: myId, x: x, y: y});
-  else conn.send({type:'move', id: myId, x: x, y: y});
+  players[myId].targetX = x; players[myId].targetY = y;
+  if (isHost) broadcast({type:'move', id: myId, x: x, y: y}); else conn.send({type:'move', id: myId, x: x, y: y});
   
   boxes.forEach(box => {
-    if (!box.opened && x > box.x && x < box.x + box.w && y > box.y && y < box.y + box.h) {
+    if (!box.opened && x > box.x-10 && x < box.x + box.w + 10 && y > box.y-10 && y < box.y + box.h + 10) {
       const dist = Math.hypot(players[myId].x - (box.x+25), players[myId].y - (box.y+25));
-      if (dist < 80) {
-        if (isHost) openBox(box, myId);
-        else conn.send({type:'open_box_req', boxId: box.id, playerId: myId});
+      if (dist < 100) {
+        if (isHost) openBox(box, myId); else conn.send({type:'open_box_req', boxId: box.id, playerId: myId});
       }
     }
   });
@@ -728,11 +614,8 @@ canvas.addEventListener('click', e => {
   if (fightMode && duolingo && players[myId].weapon) {
     const dist = Math.hypot(players[myId].x - duolingo.x, players[myId].y - duolingo.y);
     if (dist < 100) {
-      const dmg = getWeaponDamage(players[myId].weapon);
-      playSound('shoot');
-      const data = {type:'fight_attack', damage: dmg};
-      if (isHost) handleMsg(data);
-      else conn.send(data);
+      playSound('shoot'); const data = {type:'fight_attack', damage: getWeaponDamage(players[myId].weapon)};
+      if (isHost) handleMsg(data); else conn.send(data);
     }
   }
 });
@@ -742,128 +625,63 @@ function toggleSit() {
   if (players[myId].sitting) {
     players[myId].sitting = false;
     const data = {type:'sit', id: myId, sitting: false};
-    if (isHost) broadcast(data);
-    else conn.send(data);
-    playSound('sit');
+    if (isHost) broadcast(data); else conn.send(data); playSound('sit');
   } else {
     let closest = null, minDist = Infinity, closestIdx = -1;
     chairs.forEach((c, i) => {
       const d = Math.hypot(players[myId].x - c.x, players[myId].y - c.y);
       if (d < minDist) { minDist = d; closest = c; closestIdx = i; }
     });
-    if (closest && minDist < 80) {
-      players[myId].sitting = true;
-      players[myId].x = closest.x;
-      players[myId].y = closest.y;
-      players[myId].targetX = closest.x;
-      players[myId].targetY = closest.y;
+    if (closest && minDist < 120) {
+      players[myId].sitting = true; players[myId].x = closest.x; players[myId].y = closest.y;
+      players[myId].targetX = closest.x; players[myId].targetY = closest.y;
       const data = {type:'sit', id: myId, sitting: true, chairIdx: closestIdx};
-      if (isHost) broadcast(data);
-      else conn.send(data);
-      playSound('sit');
-    } else {
-      showMsg('🪑 Acércate a una silla primero');
-    }
+      if (isHost) broadcast(data); else conn.send(data); playSound('sit');
+    } else { showMsg('🪑 Acércate a una silla primero'); }
   }
 }
 
-function getWeaponDamage(w) {
-  return {'Pistola': 20, 'Rifle': 40, 'Bate': 15, 'Cuchillo': 10, 'Escopeta': 50}[w] || 10;
-}
+function getWeaponDamage(w) { return {'Pistola': 20, 'Rifle': 40, 'Bate': 15, 'Cuchillo': 10, 'Escopeta': 50}[w] || 10; }
 
 function openBox(box, playerId) {
   const weapon = Math.random() < 0.6 ? WEAPONS[Math.floor(Math.random()*WEAPONS.length)] : null;
   const data = {type:'open_box', boxId: box.id, playerId: playerId, weapon: weapon};
-  broadcast(data);
-  handleMsg(data);
+  broadcast(data); handleMsg(data);
 }
 
-// ============ DIBUJO MEJORADO ============
+// ============ DIBUJO ============
 function drawBackground() {
   const grad = ctx.createRadialGradient(WORLD_W/2, WORLD_H/2, 100, WORLD_W/2, WORLD_H/2, 700);
-  grad.addColorStop(0, '#4a3020');
-  grad.addColorStop(1, '#1a0808');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+  grad.addColorStop(0, '#4a3020'); grad.addColorStop(1, '#1a0808');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, WORLD_W, WORLD_H);
   
   for (let y = 0; y < WORLD_H; y += 40) {
     for (let x = 0; x < WORLD_W; x += 80) {
-      const offset = (y / 40) % 2 === 0 ? 0 : 40;
-      const shade = 30 + ((x*7 + y*13) % 20);
-      ctx.fillStyle = `rgb(${shade+20}, ${shade}, ${shade-10})`;
-      ctx.fillRect(x + offset, y, 78, 38);
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x + offset, y, 78, 38);
+      const offset = (y / 40) % 2 === 0 ? 0 : 40; const shade = 30 + ((x*7 + y*13) % 20);
+      ctx.fillStyle = `rgb(${shade+20}, ${shade}, ${shade-10})`; ctx.fillRect(x + offset, y, 78, 38);
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(x + offset, y, 78, 38);
     }
   }
-  
-  ctx.fillStyle = 'rgba(80, 10, 10, 0.4)';
-  [[200, 300, 30], [800, 200, 25], [500, 500, 35], [1000, 400, 28], [300, 600, 22]].forEach(([x,y,r]) => {
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI*2);
-    ctx.fill();
-  });
-  
-  ctx.fillStyle = '#0a0404';
-  ctx.fillRect(0, 0, WORLD_W, 40);
-  ctx.fillRect(0, WORLD_H-40, WORLD_W, 40);
-  ctx.fillRect(0, 0, 40, WORLD_H);
-  ctx.fillRect(WORLD_W-40, 0, 40, WORLD_H);
-  
-  ctx.strokeStyle = '#555';
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(50, 20); ctx.lineTo(WORLD_W-50, 20);
-  ctx.stroke();
-  ctx.strokeStyle = '#777';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(50, 18); ctx.lineTo(WORLD_W-50, 18);
-  ctx.stroke();
-  
-  for (let i = 0; i < 5; i++) {
-    const x = 150 + i * 230;
-    ctx.strokeStyle = '#888';
-    ctx.lineWidth = 2;
-    for (let j = 0; j < 4; j++) {
-      ctx.beginPath();
-      ctx.ellipse(x, 50 + j*12, 4, 6, 0, 0, Math.PI*2);
-      ctx.stroke();
-    }
-  }
-  
-  [[100, 100], [WORLD_W-100, 100], [100, WORLD_H-100], [WORLD_W-100, WORLD_H-100]].forEach(([x,y]) => {
-    ctx.fillStyle = '#ddd';
-    ctx.beginPath();
-    ctx.arc(x, y, 8, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x-4, y-2, 2, 2);
-    ctx.fillRect(x+2, y-2, 2, 2);
-    ctx.fillRect(x-1, y+2, 2, 2);
-  });
 }
 
 function drawChair(chair) {
   const x = chair.x, y = chair.y;
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  ctx.beginPath();
-  ctx.ellipse(x, y+25, 20, 5, 0, 0, Math.PI*2);
-  ctx.fill();
-  ctx.fillStyle = '#3a2410';
-  ctx.fillRect(x-15, y+5, 4, 20);
-  ctx.fillRect(x+11, y+5, 4, 20);
-  ctx.fillRect(x-15, y-15, 4, 20);
-  ctx.fillRect(x+11, y-15, 4, 20);
-  ctx.fillStyle = '#6b3410';
-  ctx.fillRect(x-18, y, 36, 8);
-  ctx.fillStyle = '#8b4513';
-  ctx.fillRect(x-18, y-25, 36, 8);
-  ctx.fillRect(x-18, y-25, 4, 25);
-  ctx.fillRect(x+14, y-25, 4, 25);
-  ctx.fillStyle = '#4a2408';
-  ctx.fillRect(x-14, y-20, 28, 2);
+  
+  // QoL: Resaltar silla si estamos cerca y vivos
+  let canSit = false;
+  if (players[myId] && !players[myId].sitting && players[myId].alive) {
+     if (Math.hypot(players[myId].x - x, players[myId].y - y) < 120) canSit = true;
+  }
+  if (canSit) {
+     ctx.strokeStyle = `rgba(255, 204, 0, ${0.5 + Math.sin(Date.now()/150)*0.5})`; ctx.lineWidth = 2;
+     ctx.beginPath(); ctx.ellipse(x, y+10, 30, 15, 0, 0, Math.PI*2); ctx.stroke();
+  }
+
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(x, y+25, 20, 5, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#3a2410'; ctx.fillRect(x-15, y+5, 4, 20); ctx.fillRect(x+11, y+5, 4, 20); ctx.fillRect(x-15, y-15, 4, 20); ctx.fillRect(x+11, y-15, 4, 20);
+  ctx.fillStyle = '#6b3410'; ctx.fillRect(x-18, y, 36, 8);
+  ctx.fillStyle = '#8b4513'; ctx.fillRect(x-18, y-25, 36, 8); ctx.fillRect(x-18, y-25, 4, 25); ctx.fillRect(x+14, y-25, 4, 25);
+  ctx.fillStyle = '#4a2408'; ctx.fillRect(x-14, y-20, 28, 2);
 }
 
 function drawBox(box) {
@@ -871,288 +689,164 @@ function drawBox(box) {
   const shake = box.opened && t < 300 ? Math.sin(t/20) * 2 : 0;
   const x = box.x + shake, y = box.y;
   
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  ctx.beginPath();
-  ctx.ellipse(box.x+25, box.y+box.h+3, 25, 6, 0, 0, Math.PI*2);
-  ctx.fill();
+  // QoL: Resaltar caja si estamos cerca para tocarla
+  let canOpen = false;
+  if (players[myId] && !box.opened && players[myId].alive && !players[myId].sitting) {
+     if (Math.hypot(players[myId].x - (box.x+25), players[myId].y - (box.y+25)) < 100) canOpen = true;
+  }
+  if (canOpen) {
+     ctx.strokeStyle = `rgba(0, 255, 0, ${0.5 + Math.sin(Date.now()/150)*0.5})`; ctx.lineWidth = 3;
+     ctx.strokeRect(x-3, y-3, box.w+6, box.h+6);
+  }
   
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(box.x+25, box.y+box.h+3, 25, 6, 0, 0, Math.PI*2); ctx.fill();
   if (box.opened) {
-    ctx.fillStyle = '#4a2a08';
-    ctx.fillRect(x, y+20, box.w, box.h-20);
-    ctx.fillStyle = '#6a3a18';
-    ctx.fillRect(x-3, y-5, box.w+6, 15);
-    ctx.fillStyle = '#3a1a00';
-    ctx.fillRect(x, y+10, box.w, 3);
+    ctx.fillStyle = '#4a2a08'; ctx.fillRect(x, y+20, box.w, box.h-20);
+    ctx.fillStyle = '#6a3a18'; ctx.fillRect(x-3, y-5, box.w+6, 15);
+    ctx.fillStyle = '#3a1a00'; ctx.fillRect(x, y+10, box.w, 3);
   } else {
     const glow = Math.sin(Date.now()/300) * 0.2 + 0.8;
-    ctx.fillStyle = `rgb(${Math.floor(139*glow)}, ${Math.floor(90*glow)}, ${Math.floor(43*glow)})`;
-    ctx.fillRect(x, y, box.w, box.h);
-    ctx.fillStyle = '#5a3a1b';
-    ctx.fillRect(x, y+box.h/2-2, box.w, 4);
-    ctx.fillRect(x+box.w/2-2, y, 4, box.h);
-    ctx.fillStyle = '#ffcc00';
-    ctx.fillRect(x+box.w/2-4, y+box.h/2-4, 8, 8);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x+box.w/2-2, y+box.h/2-2, 2, 2);
-    ctx.strokeStyle = '#2a1a08';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x, y, box.w, box.h);
+    ctx.fillStyle = `rgb(${Math.floor(139*glow)}, ${Math.floor(90*glow)}, ${Math.floor(43*glow)})`; ctx.fillRect(x, y, box.w, box.h);
+    ctx.fillStyle = '#5a3a1b'; ctx.fillRect(x, y+box.h/2-2, box.w, 4); ctx.fillRect(x+box.w/2-2, y, 4, box.h);
+    ctx.fillStyle = '#ffcc00'; ctx.fillRect(x+box.w/2-4, y+box.h/2-4, 8, 8);
+    ctx.fillStyle = '#fff'; ctx.fillRect(x+box.w/2-2, y+box.h/2-2, 2, 2);
+    ctx.strokeStyle = '#2a1a08'; ctx.lineWidth = 2; ctx.strokeRect(x, y, box.w, box.h);
   }
 }
 
 function drawPlayer(p) {
   if (!p.alive) {
-    ctx.fillStyle = '#ddd';
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 10, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = '#000';
-    ctx.fillRect(p.x-5, p.y-3, 3, 3);
-    ctx.fillRect(p.x+2, p.y-3, 3, 3);
-    return;
+    ctx.fillStyle = '#ddd'; ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.fillRect(p.x-5, p.y-3, 3, 3); ctx.fillRect(p.x+2, p.y-3, 3, 3); return;
   }
-  const x = p.x, y = p.y;
-  const bob = p.sitting ? 0 : Math.sin(Date.now()/150) * 1;
-  const f = p.facing;
+  const x = p.x, y = p.y, bob = p.sitting ? 0 : Math.sin(Date.now()/150) * 1, f = p.facing;
   
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.beginPath();
-  ctx.ellipse(x, y+22, 12, 4, 0, 0, Math.PI*2);
-  ctx.fill();
-  
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(x, y+22, 12, 4, 0, 0, Math.PI*2); ctx.fill();
   if (p.sitting) {
-    ctx.fillStyle = '#222';
-    ctx.fillRect(x-8, y+5, 16, 6);
-    ctx.fillStyle = p.color;
-    ctx.fillRect(x-10, y-12, 20, 18);
-    ctx.fillStyle = p.color;
-    ctx.fillRect(x-8, y-26+bob, 16, 16);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x-5*f-2, y-22+bob, 3, 3);
-    ctx.fillRect(x+2*f-1, y-22+bob, 3, 3);
-    ctx.fillRect(x-2, y-15+bob, 4, 1);
+    ctx.fillStyle = '#222'; ctx.fillRect(x-8, y+5, 16, 6); ctx.fillStyle = p.color; ctx.fillRect(x-10, y-12, 20, 18);
+    ctx.fillStyle = p.color; ctx.fillRect(x-8, y-26+bob, 16, 16);
+    ctx.fillStyle = '#000'; ctx.fillRect(x-5*f-2, y-22+bob, 3, 3); ctx.fillRect(x+2*f-1, y-22+bob, 3, 3); ctx.fillRect(x-2, y-15+bob, 4, 1);
   } else {
     const walk = Math.sin(Date.now()/100) * 3;
-    ctx.fillStyle = '#222';
-    ctx.fillRect(x-8, y+10, 6, 12 + (walk > 0 ? walk : 0));
-    ctx.fillRect(x+2, y+10, 6, 12 + (walk < 0 ? -walk : 0));
-    ctx.fillStyle = p.color;
-    ctx.fillRect(x-10, y-8+bob, 20, 20);
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.fillRect(x-10, y+5+bob, 20, 3);
-    ctx.fillStyle = p.color;
-    ctx.fillRect(x-8, y-24+bob, 16, 16);
-    ctx.fillStyle = '#2a1a0a';
-    ctx.fillRect(x-8, y-24+bob, 16, 4);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x-5, y-20+bob, 4, 4);
-    ctx.fillRect(x+1, y-20+bob, 4, 4);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x-4+f, y-19+bob, 2, 2);
-    ctx.fillRect(x+2+f, y-19+bob, 2, 2);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x-2, y-13+bob, 4, 1);
-    ctx.fillStyle = p.color;
-    ctx.fillRect(x-13, y-6+bob, 4, 12);
-    ctx.fillRect(x+9, y-6+bob, 4, 12);
-    if (p.weapon) {
-      ctx.fillStyle = '#444';
-      ctx.fillRect(x+11*f, y-3+bob, 18*f, 4);
-      ctx.fillStyle = '#222';
-      ctx.fillRect(x+11*f, y-1+bob, 18*f, 2);
-    }
+    ctx.fillStyle = '#222'; ctx.fillRect(x-8, y+10, 6, 12 + (walk > 0 ? walk : 0)); ctx.fillRect(x+2, y+10, 6, 12 + (walk < 0 ? -walk : 0));
+    ctx.fillStyle = p.color; ctx.fillRect(x-10, y-8+bob, 20, 20); ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(x-10, y+5+bob, 20, 3);
+    ctx.fillStyle = p.color; ctx.fillRect(x-8, y-24+bob, 16, 16); ctx.fillStyle = '#2a1a0a'; ctx.fillRect(x-8, y-24+bob, 16, 4);
+    ctx.fillStyle = '#fff'; ctx.fillRect(x-5, y-20+bob, 4, 4); ctx.fillRect(x+1, y-20+bob, 4, 4);
+    ctx.fillStyle = '#000'; ctx.fillRect(x-4+f, y-19+bob, 2, 2); ctx.fillRect(x+2+f, y-19+bob, 2, 2); ctx.fillRect(x-2, y-13+bob, 4, 1);
+    ctx.fillStyle = p.color; ctx.fillRect(x-13, y-6+bob, 4, 12); ctx.fillRect(x+9, y-6+bob, 4, 12);
+    if (p.weapon) { ctx.fillStyle = '#444'; ctx.fillRect(x+11*f, y-3+bob, 18*f, 4); ctx.fillStyle = '#222'; ctx.fillRect(x+11*f, y-1+bob, 18*f, 2); }
   }
   
-  ctx.font = 'bold 12px Courier New';
-  ctx.textAlign = 'center';
-  const nameY = p.sitting ? y-32 : y-30+bob;
-  const tw = ctx.measureText(p.name).width;
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  ctx.fillRect(x-tw/2-3, nameY-10, tw+6, 14);
-  ctx.fillStyle = '#fff';
-  ctx.fillText(p.name, x, nameY);
-  
-  if (p.weapon) {
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(x-20, nameY-22, 40, 10);
-    ctx.fillStyle = '#00ff00';
-    ctx.font = '9px Courier New';
-    ctx.fillText(p.weapon, x, nameY-14);
-  }
+  ctx.font = 'bold 12px Courier New'; ctx.textAlign = 'center';
+  const nameY = p.sitting ? y-32 : y-30+bob; const tw = ctx.measureText(p.name).width;
+  ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x-tw/2-3, nameY-10, tw+6, 14); ctx.fillStyle = '#fff'; ctx.fillText(p.name, x, nameY);
+  if (p.weapon) { ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x-20, nameY-22, 40, 10); ctx.fillStyle = '#00ff00'; ctx.font = '9px Courier New'; ctx.fillText(p.weapon, x, nameY-14); }
 }
 
 function drawDuolingo() {
   if (!duolingo) return;
-  const x = duolingo.x, y = duolingo.y;
-  const bob = Math.sin(Date.now()/200) * 3;
-  const flash = duolingo.hitFlash > 0;
-  
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.beginPath();
-  ctx.ellipse(x, y+35, 25, 7, 0, 0, Math.PI*2);
-  ctx.fill();
-  
-  if (fightMode) {
-    ctx.fillStyle = `rgba(255,0,0,${0.2 + Math.sin(Date.now()/100)*0.1})`;
-    ctx.beginPath();
-    ctx.arc(x, y, 50, 0, Math.PI*2);
-    ctx.fill();
-  }
-  
-  ctx.fillStyle = flash ? '#fff' : '#58cc02';
-  ctx.fillRect(x-25, y-30+bob, 50, 55);
-  ctx.fillStyle = flash ? '#fff' : '#45a802';
-  ctx.fillRect(x-25, y+15+bob, 50, 10);
-  ctx.fillStyle = flash ? '#fff' : '#ffffff';
-  ctx.fillRect(x-15, y-5+bob, 30, 25);
-  
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.arc(x-10, y-18+bob, 9, 0, Math.PI*2);
-  ctx.arc(x+10, y-18+bob, 9, 0, Math.PI*2);
-  ctx.fill();
+  const x = duolingo.x, y = duolingo.y, bob = Math.sin(Date.now()/200) * 3, flash = duolingo.hitFlash > 0;
+  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.beginPath(); ctx.ellipse(x, y+35, 25, 7, 0, 0, Math.PI*2); ctx.fill();
+  if (fightMode) { ctx.fillStyle = `rgba(255,0,0,${0.2 + Math.sin(Date.now()/100)*0.1})`; ctx.beginPath(); ctx.arc(x, y, 50, 0, Math.PI*2); ctx.fill(); }
+  ctx.fillStyle = flash ? '#fff' : '#58cc02'; ctx.fillRect(x-25, y-30+bob, 50, 55);
+  ctx.fillStyle = flash ? '#fff' : '#45a802'; ctx.fillRect(x-25, y+15+bob, 50, 10);
+  ctx.fillStyle = flash ? '#fff' : '#ffffff'; ctx.fillRect(x-15, y-5+bob, 30, 25);
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x-10, y-18+bob, 9, 0, Math.PI*2); ctx.arc(x+10, y-18+bob, 9, 0, Math.PI*2); ctx.fill();
   
   let targetX = x, targetY = y;
-  Object.values(players).forEach(p => {
-    if (p.alive && !p.sitting) { targetX = p.x; targetY = p.y; }
-  });
-  const dx = targetX - x, dy = targetY - y;
-  const d = Math.hypot(dx, dy) || 1;
-  const px = (dx/d) * 3, py = (dy/d) * 3;
+  Object.values(players).forEach(p => { if (p.alive && !p.sitting) { targetX = p.x; targetY = p.y; } });
+  const dx = targetX - x, dy = targetY - y, d = Math.hypot(dx, dy) || 1, px = (dx/d) * 3, py = (dy/d) * 3;
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x-10+px, y-18+bob+py, 4, 0, Math.PI*2); ctx.arc(x+10+px, y-18+bob+py, 4, 0, Math.PI*2); ctx.fill();
   
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.arc(x-10+px, y-18+bob+py, 4, 0, Math.PI*2);
-  ctx.arc(x+10+px, y-18+bob+py, 4, 0, Math.PI*2);
-  ctx.fill();
-  
-  ctx.fillStyle = flash ? '#fff' : '#ff9600';
-  ctx.beginPath();
-  ctx.moveTo(x-6, y-5+bob);
-  ctx.lineTo(x+6, y-5+bob);
-  ctx.lineTo(x, y+5+bob);
-  ctx.closePath();
-  ctx.fill();
-  
-  ctx.fillStyle = flash ? '#fff' : '#ff9600';
-  ctx.fillRect(x-18, y+25+bob, 10, 8);
-  ctx.fillRect(x+8, y+25+bob, 10, 8);
-  
-  ctx.fillStyle = flash ? '#fff' : '#3a8a02';
-  ctx.fillRect(x-28, y-10+bob, 8, 25);
-  ctx.fillRect(x+20, y-10+bob, 8, 25);
+  ctx.fillStyle = flash ? '#fff' : '#ff9600'; ctx.beginPath(); ctx.moveTo(x-6, y-5+bob); ctx.lineTo(x+6, y-5+bob); ctx.lineTo(x, y+5+bob); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = flash ? '#fff' : '#ff9600'; ctx.fillRect(x-18, y+25+bob, 10, 8); ctx.fillRect(x+8, y+25+bob, 10, 8);
+  ctx.fillStyle = flash ? '#fff' : '#3a8a02'; ctx.fillRect(x-28, y-10+bob, 8, 25); ctx.fillRect(x+20, y-10+bob, 8, 25);
   
   if (duolingo.hp < duolingo.maxHp) {
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x-30, y-45+bob, 60, 8);
-    ctx.fillStyle = '#ff0000';
-    ctx.fillRect(x-29, y-44+bob, 58 * (duolingo.hp/duolingo.maxHp), 6);
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x-30, y-45+bob, 60, 8);
+    ctx.fillStyle = '#000'; ctx.fillRect(x-30, y-45+bob, 60, 8);
+    ctx.fillStyle = '#ff0000'; ctx.fillRect(x-29, y-44+bob, 58 * (duolingo.hp/duolingo.maxHp), 6);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(x-30, y-45+bob, 60, 8);
   }
-  
   if (duolingo.hitFlash > 0) duolingo.hitFlash--;
 }
 
 function drawParticles() {
-  particles.forEach(p => {
-    ctx.fillStyle = p.color;
-    ctx.globalAlpha = p.life / 40;
-    ctx.fillRect(p.x-2, p.y-2, 4, 4);
-  });
+  particles.forEach(p => { ctx.fillStyle = p.color; ctx.globalAlpha = p.life / 40; ctx.fillRect(p.x-2, p.y-2, 4, 4); });
   ctx.globalAlpha = 1;
 }
 
 function drawLighting() {
   const grad = ctx.createRadialGradient(WORLD_W/2, WORLD_H/2, 200, WORLD_W/2, WORLD_H/2, 700);
-  grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.7)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+  grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,0.7)');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, WORLD_W, WORLD_H);
   
   const flicker = Math.sin(Date.now()/100) * 0.1 + 0.9;
   [[100, 100], [WORLD_W-100, 100], [100, WORLD_H-100], [WORLD_W-100, WORLD_H-100]].forEach(([x,y]) => {
     const lg = ctx.createRadialGradient(x, y, 0, x, y, 100);
-    lg.addColorStop(0, `rgba(255, 150, 50, ${0.3 * flicker})`);
-    lg.addColorStop(1, 'rgba(255, 150, 50, 0)');
-    ctx.fillStyle = lg;
-    ctx.fillRect(x-100, y-100, 200, 200);
-    ctx.fillStyle = '#ffaa00';
-    ctx.fillRect(x-2, y-8, 4, 6);
-    ctx.fillStyle = '#ffff00';
-    ctx.fillRect(x-1, y-6, 2, 3);
+    lg.addColorStop(0, `rgba(255, 150, 50, ${0.3 * flicker})`); lg.addColorStop(1, 'rgba(255, 150, 50, 0)');
+    ctx.fillStyle = lg; ctx.fillRect(x-100, y-100, 200, 200);
+    ctx.fillStyle = '#ffaa00'; ctx.fillRect(x-2, y-8, 4, 6); ctx.fillStyle = '#ffff00'; ctx.fillRect(x-1, y-6, 2, 3);
   });
 }
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const scale = canvas.width / WORLD_W;
+  const scale = canvas.width / (WORLD_W * (window.devicePixelRatio || 1));
   ctx.save();
   
   if (screenShake > 0) {
     ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
-    screenShake *= 0.9;
-    if (screenShake < 0.5) screenShake = 0;
+    screenShake *= 0.9; if (screenShake < 0.5) screenShake = 0;
   }
   
-  ctx.scale(scale, scale);
+  ctx.scale(scale * (window.devicePixelRatio || 1), scale * (window.devicePixelRatio || 1));
   
   drawBackground();
-  chairs.forEach(drawChair);
-  boxes.forEach(drawBox);
+  
+  // QoL: Dibujar Indicador de target (Movimiento)
+  if (players[myId] && !players[myId].sitting && players[myId].alive) {
+    const p = players[myId];
+    const distTarget = Math.hypot(p.targetX - p.x, p.targetY - p.y);
+    if (distTarget > 5) {
+      ctx.strokeStyle = `rgba(255, 204, 0, ${0.3 + Math.sin(Date.now()/100)*0.4})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(p.targetX, p.targetY, 8, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.targetX-4, p.targetY); ctx.lineTo(p.targetX+4, p.targetY);
+      ctx.moveTo(p.targetX, p.targetY-4); ctx.lineTo(p.targetX, p.targetY+4); ctx.stroke();
+    }
+  }
+
+  chairs.forEach(drawChair); boxes.forEach(drawBox);
   
   const allEntities = [
     ...Object.values(players).map(p => ({type:'player', data:p, y:p.y})),
     ...(duolingo ? [{type:'duo', data:duolingo, y:duolingo.y}] : [])
   ].sort((a,b) => a.y - b.y);
   
-  allEntities.forEach(e => {
-    if (e.type === 'player') drawPlayer(e.data);
-    else drawDuolingo();
-  });
+  allEntities.forEach(e => { if (e.type === 'player') drawPlayer(e.data); else drawDuolingo(); });
   
-  drawParticles();
-  drawLighting();
-  
-  ctx.restore();
+  drawParticles(); drawLighting(); ctx.restore();
 }
 
 // ============ LÓGICA DEL JUEGO ============
 function updatePlayers() {
   Object.values(players).forEach(p => {
     if (!p.alive || p.sitting) return;
-    const dx = p.targetX - p.x;
-    const dy = p.targetY - p.y;
-    const dist = Math.hypot(dx, dy);
+    const dx = p.targetX - p.x, dy = p.targetY - p.y, dist = Math.hypot(dx, dy);
     if (dist > 2) {
-      p.x += (dx/dist) * 2.5;
-      p.y += (dy/dist) * 2.5;
-      p.facing = dx > 0 ? 1 : -1;
-      if (Date.now() - lastStepTime > 250 && p === players[myId]) {
-        playSound('step');
-        lastStepTime = Date.now();
-      }
+      p.x += (dx/dist) * 2.5; p.y += (dy/dist) * 2.5; p.facing = dx > 0 ? 1 : -1;
+      if (Date.now() - lastStepTime > 250 && p === players[myId]) { playSound('step'); lastStepTime = Date.now(); }
     }
-    p.x = Math.max(50, Math.min(WORLD_W-50, p.x));
-    p.y = Math.max(50, Math.min(WORLD_H-50, p.y));
+    p.x = Math.max(50, Math.min(WORLD_W-50, p.x)); p.y = Math.max(50, Math.min(WORLD_H-50, p.y));
   });
 }
 
 function updateParticles() {
-  particles = particles.filter(p => {
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vy += 0.2;
-    p.life--;
-    return p.life > 0;
-  });
+  particles = particles.filter(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--; return p.life > 0; });
 }
 
 function updateDuolingo() {
   if (!duolingo) return;
-  let target = null;
-  let minDist = Infinity;
+  let target = null, minDist = Infinity;
   Object.values(players).forEach(p => {
     if (!p.alive || p.sitting) return;
     const d = Math.hypot(p.x - duolingo.x, p.y - duolingo.y);
@@ -1160,21 +854,14 @@ function updateDuolingo() {
   });
   
   if (target) {
-    const dx = target.x - duolingo.x;
-    const dy = target.y - duolingo.y;
-    const d = Math.hypot(dx, dy);
-    if (d > 5) {
-      duolingo.x += (dx/d) * 1.5;
-      duolingo.y += (dy/d) * 1.5;
-    }
+    const dx = target.x - duolingo.x, dy = target.y - duolingo.y, d = Math.hypot(dx, dy);
+    if (d > 5) { duolingo.x += (dx/d) * 1.5; duolingo.y += (dy/d) * 1.5; }
     if (isHost) broadcast({type:'duolingo_move', duolingo: duolingo});
     
     if (d < 60 && !fightMode && !currentQuestion && !voting) {
       if (isHost) {
         const q = QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)];
-        currentQuestion = q;
-        broadcast({type:'question', question: q});
-        handleMsg({type:'question', question: q});
+        currentQuestion = q; broadcast({type:'question', question: q}); handleMsg({type:'question', question: q});
       }
     }
   }
@@ -1182,11 +869,7 @@ function updateDuolingo() {
 
 function gameLoop() {
   if (!gameStarted) return;
-  updatePlayers();
-  updateParticles();
-  if (isHost) updateDuolingo();
-  draw();
-  updateHUD();
+  updatePlayers(); updateParticles(); if (isHost) updateDuolingo(); draw(); updateHUD();
   requestAnimationFrame(gameLoop);
 }
 
@@ -1194,74 +877,47 @@ function gameLoop() {
 function startTimer() {
   setInterval(() => {
     if (!gameStarted) return;
-    
     if (!duolingo && !voting && !fightMode) {
       duolingoTimer--;
-      const m = Math.floor(duolingoTimer/60);
-      const s = duolingoTimer%60;
+      const m = Math.floor(duolingoTimer/60), s = duolingoTimer%60;
       document.getElementById('timeLeft').textContent = m + ':' + (s<10?'0':'') + s;
       if (duolingoTimer <= 0) spawnDuolingo();
     }
-    
     if (isHost) {
       boxRespawnTimer--;
       if (boxRespawnTimer <= 0) {
-        boxes.forEach(b => { 
-          b.opened = false; 
-          b.x = 100 + Math.random() * (WORLD_W - 200); 
-          b.y = 150 + Math.random() * (WORLD_H - 300); 
-        });
-        broadcast({type:'boxes_respawn', boxes: boxes});
-        handleMsg({type:'boxes_respawn', boxes: boxes});
+        boxes.forEach(b => { b.opened = false; b.x = 100 + Math.random()*(WORLD_W-200); b.y = 150 + Math.random()*(WORLD_H-300); });
+        broadcast({type:'boxes_respawn', boxes: boxes}); handleMsg({type:'boxes_respawn', boxes: boxes});
         boxRespawnTimer = 30;
       }
     }
   }, 1000);
 }
 
-function resetTimer() {
-  duolingoTimer = 300;
-}
+function resetTimer() { duolingoTimer = 300; }
 
 function spawnDuolingo() {
   duolingo = {x: WORLD_W/2, y: 80, hp: 100, maxHp: 100, hitFlash: 0};
   if (isHost) {
     broadcast({type:'duolingo_spawn', duolingo: duolingo});
     const hasWeapon = Object.values(players).some(p => p.alive && p.weapon);
-    if (hasWeapon) {
-      setTimeout(() => {
-        voting = true;
-        votes = {};
-        broadcast({type:'vote_start'});
-        handleMsg({type:'vote_start'});
-      }, 2000);
-    }
+    if (hasWeapon) { setTimeout(() => { voting = true; votes = {}; broadcast({type:'vote_start'}); handleMsg({type:'vote_start'}); }, 2000); }
   }
 }
 
 function castVote(vote) {
   const data = {type:'vote', id: myId, vote: vote};
-  if (isHost) {
-    handleMsg(data);
-  } else {
-    conn.send(data);
-  }
+  if (isHost) { handleMsg(data); } else { conn.send(data); }
   document.getElementById('votePanel').style.display = 'none';
 }
 
 function resolveVote() {
-  const yes = Object.values(votes).filter(v => v).length;
-  const no = Object.values(votes).filter(v => !v).length;
-  const fight = yes > no;
-  const data = {type:'vote_result', fight: fight};
-  broadcast(data);
-  handleMsg(data);
+  const yes = Object.values(votes).filter(v => v).length, no = Object.values(votes).filter(v => !v).length, fight = yes > no;
+  const data = {type:'vote_result', fight: fight}; broadcast(data); handleMsg(data);
   if (!fight) {
     setTimeout(() => {
       const q = QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)];
-      currentQuestion = q;
-      broadcast({type:'question', question: q});
-      handleMsg({type:'question', question: q});
+      currentQuestion = q; broadcast({type:'question', question: q}); handleMsg({type:'question', question: q});
     }, 1500);
   }
 }
@@ -1269,27 +925,18 @@ function resolveVote() {
 function checkAnswer(playerId, ans) {
   if (!currentQuestion) return;
   const correct = ans === currentQuestion.a.toLowerCase();
-  
   if (correct) {
-    broadcast({type:'answer_result', id: playerId, correct: true});
-    handleMsg({type:'answer_result', id: playerId, correct: true});
-    duolingo = null;
-    fightMode = false;
-    resetTimer();
+    broadcast({type:'answer_result', id: playerId, correct: true}); handleMsg({type:'answer_result', id: playerId, correct: true});
+    duolingo = null; fightMode = false; resetTimer();
   } else {
-    broadcast({type:'answer_result', id: playerId, correct: false});
-    handleMsg({type:'answer_result', id: playerId, correct: false});
+    broadcast({type:'answer_result', id: playerId, correct: false}); handleMsg({type:'answer_result', id: playerId, correct: false});
   }
 }
 
 function submitAnswer() {
   const ans = document.getElementById('answer').value.trim().toLowerCase();
   document.getElementById('dialog').style.display = 'none';
-  if (isHost) {
-    checkAnswer(myId, ans);
-  } else {
-    conn.send({type:'submit_answer', id: myId, answer: ans});
-  }
+  if (isHost) checkAnswer(myId, ans); else conn.send({type:'submit_answer', id: myId, answer: ans});
 }
 
 // ============ HUD ============
@@ -1304,24 +951,32 @@ function updateHUD() {
   hud.innerHTML = html;
   
   const wi = document.getElementById('weaponInfo');
-  if (players[myId] && players[myId].weapon) {
-    wi.style.display = 'block';
-    document.getElementById('weaponName').textContent = players[myId].weapon;
-  } else {
-    wi.style.display = 'none';
+  if (players[myId] && players[myId].weapon) { wi.style.display = 'block'; document.getElementById('weaponName').textContent = players[myId].weapon; } 
+  else { wi.style.display = 'none'; }
+  
+  // QoL: Actualizar texto botón dinámicamente
+  const sitBtn = document.getElementById('sitBtn');
+  if (players[myId]) {
+    sitBtn.textContent = players[myId].sitting ? '🧍 Levantarse' : '🪑 Sentarse';
+    sitBtn.style.display = players[myId].alive ? 'block' : 'none';
   }
 }
 
+let msgTimeout = null;
 function showMsg(text) {
   const box = document.getElementById('msgBox');
   box.textContent = text;
   box.style.display = 'block';
-  setTimeout(() => box.style.display = 'none', 3000);
+  
+  setTimeout(() => box.style.opacity = '1', 10);
+  if (msgTimeout) clearTimeout(msgTimeout);
+  msgTimeout = setTimeout(() => {
+    box.style.opacity = '0';
+    setTimeout(() => box.style.display = 'none', 300);
+  }, 3000);
 }
 
-document.getElementById('answer').addEventListener('keypress', e => {
-  if (e.key === 'Enter') submitAnswer();
-});
+document.getElementById('answer').addEventListener('keypress', e => { if (e.key === 'Enter') submitAnswer(); });
 </script>
 </body>
 </html>
