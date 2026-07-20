@@ -2,11 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Escape del Sótano - Multijugador v2</title>
+<title>Escape del Sótano - Multijugador v3</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', monospace; }
-  body { background: #000; color: #eee; overflow: hidden; }
+  body { background: #000; color: #eee; overflow: hidden; user-select: none; }
   #menu, #lobby, #game { position: absolute; top:0; left:0; width:100vw; height:100vh; }
   #menu, #lobby { display:flex; flex-direction:column; align-items:center; justify-content:center; background:radial-gradient(circle, #1a0a0a 0%, #000 100%); z-index:10; }
   #game { display:none; }
@@ -32,6 +32,7 @@
   #sitBtn { position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.85); color:#ffcc00; padding:10px 15px; border:2px solid #ffcc00; z-index:5; font-size:14px; cursor:pointer; }
   #sitBtn:hover { background:#ffcc00; color:#000; }
   #soundToggle { position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85); color:#ffcc00; padding:8px 12px; border:2px solid #ffcc00; z-index:5; cursor:pointer; }
+  #status { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); color:#888; font-size:12px; }
 </style>
 </head>
 <body>
@@ -57,6 +58,7 @@
     <button onclick="startGame()" style="background:#00ff00; color:#000; font-size:20px;">▶ INICIAR PARTIDA</button>
   </div>
   <p style="color:#888; margin-top:20px;">Esperando jugadores... (máx. 4)</p>
+  <div id="status">Conectando...</div>
 </div>
 
 <div id="game">
@@ -83,7 +85,7 @@
 </div>
 
 <script>
-// ============ AUDIO SYSTEM ============
+// ============ SISTEMA DE AUDIO ============
 let audioCtx = null;
 let soundEnabled = true;
 let ambientOsc = null;
@@ -98,7 +100,6 @@ function initAudio() {
 
 function startAmbient() {
   if (!audioCtx || !soundEnabled) return;
-  // Ambiente tenebroso: ruido bajo + drone
   const osc1 = audioCtx.createOscillator();
   const osc2 = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
@@ -121,14 +122,12 @@ function playSound(type) {
     o.type = 'square'; o.frequency.value = 80 + Math.random()*40;
     g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.05);
     o.connect(g); o.start(t); o.stop(t+0.05);
-  }
-  else if (type === 'box') {
+  } else if (type === 'box') {
     const o = audioCtx.createOscillator();
     o.type = 'triangle'; o.frequency.setValueAtTime(400, t); o.frequency.exponentialRampToValueAtTime(100, t+0.2);
     g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.2);
     o.connect(g); o.start(t); o.stop(t+0.2);
-  }
-  else if (type === 'weapon') {
+  } else if (type === 'weapon') {
     [523, 659, 784].forEach((f, i) => {
       const o = audioCtx.createOscillator();
       const gg = audioCtx.createGain();
@@ -137,15 +136,12 @@ function playSound(type) {
       o.connect(gg); gg.connect(audioCtx.destination);
       o.start(t+i*0.1); o.stop(t+i*0.1+0.15);
     });
-  }
-  else if (type === 'duo_spawn') {
-    // Sonido amenazante
+  } else if (type === 'duo_spawn') {
     const o = audioCtx.createOscillator();
     o.type = 'sawtooth'; o.frequency.setValueAtTime(100, t); o.frequency.exponentialRampToValueAtTime(400, t+0.8);
     g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.001, t+1);
     o.connect(g); o.start(t); o.stop(t+1);
-  }
-  else if (type === 'shoot') {
+  } else if (type === 'shoot') {
     const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.2, audioCtx.sampleRate);
     const data = buf.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = (Math.random()*2-1) * Math.pow(1-i/data.length, 2);
@@ -153,8 +149,7 @@ function playSound(type) {
     src.buffer = buf;
     g.gain.value = 0.3;
     src.connect(g); src.start(t);
-  }
-  else if (type === 'correct') {
+  } else if (type === 'correct') {
     [523, 659, 784, 1047].forEach((f, i) => {
       const o = audioCtx.createOscillator();
       const gg = audioCtx.createGain();
@@ -163,8 +158,7 @@ function playSound(type) {
       o.connect(gg); gg.connect(audioCtx.destination);
       o.start(t+i*0.1); o.stop(t+i*0.1+0.2);
     });
-  }
-  else if (type === 'wrong') {
+  } else if (type === 'wrong') {
     [300, 200, 100].forEach((f, i) => {
       const o = audioCtx.createOscillator();
       const gg = audioCtx.createGain();
@@ -173,20 +167,17 @@ function playSound(type) {
       o.connect(gg); gg.connect(audioCtx.destination);
       o.start(t+i*0.15); o.stop(t+i*0.15+0.2);
     });
-  }
-  else if (type === 'death') {
+  } else if (type === 'death') {
     const o = audioCtx.createOscillator();
     o.type = 'sawtooth'; o.frequency.setValueAtTime(400, t); o.frequency.exponentialRampToValueAtTime(50, t+1);
     g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t+1);
     o.connect(g); o.start(t); o.stop(t+1);
-  }
-  else if (type === 'sit') {
+  } else if (type === 'sit') {
     const o = audioCtx.createOscillator();
     o.type = 'sine'; o.frequency.value = 200;
     g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.1);
     o.connect(g); o.start(t); o.stop(t+0.1);
-  }
-  else if (type === 'hit') {
+  } else if (type === 'hit') {
     const o = audioCtx.createOscillator();
     o.type = 'square'; o.frequency.setValueAtTime(200, t); o.frequency.exponentialRampToValueAtTime(50, t+0.15);
     g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.15);
@@ -197,15 +188,13 @@ function playSound(type) {
 function toggleSound() {
   soundEnabled = !soundEnabled;
   document.getElementById('soundToggle').textContent = soundEnabled ? '🔊' : '🔇';
-  if (ambientOsc) {
-    ambientOsc.gain.gain.value = soundEnabled ? 0.03 : 0;
-  }
+  if (ambientOsc) ambientOsc.gain.gain.value = soundEnabled ? 0.03 : 0;
 }
 
 // ============ VARIABLES GLOBALES ============
 let peer = null;
-let conn = null;
-let connections = [];
+let conn = null; // Conexión al host (si soy cliente)
+let connections = []; // Conexiones a clientes (si soy host)
 let isHost = false;
 let myName = '';
 let myId = '';
@@ -251,7 +240,7 @@ const QUESTIONS = [
 const WEAPONS = ['Pistola', 'Rifle', 'Bate', 'Cuchillo', 'Escopeta'];
 const PLAYER_COLORS = ['#ff6666', '#66ff66', '#6666ff', '#ffff66'];
 
-// ============ MENÚ ============
+// ============ GESTIÓN DE CONEXIONES MEJORADA ============
 function showJoin() {
   document.getElementById('joinBox').style.display = 'block';
 }
@@ -262,20 +251,61 @@ function createRoom() {
   if (!myName) { alert('Escribe tu nombre'); return; }
   isHost = true;
   roomId = 'sala-' + Math.random().toString(36).substr(2, 6);
+  
+  document.getElementById('status').textContent = 'Creando servidor...';
+  
   peer = new Peer(roomId);
-  peer.on('open', id => {
+  
+  peer.on('open', (id) => {
     myId = id;
     document.getElementById('menu').style.display = 'none';
     document.getElementById('lobby').style.display = 'flex';
     document.getElementById('roomId').textContent = 'ID: ' + roomId;
     document.getElementById('hostControls').style.display = 'block';
-    players[id] = {name: myName, x: 200, y: 400, targetX: 200, targetY: 400, lives: 2, weapon: null, alive: true, color: PLAYER_COLORS[0], sitting: false, frame: 0, facing: 1};
+    document.getElementById('status').textContent = 'Servidor listo. Esperando jugadores...';
+    
+    // Añadirme a mí mismo como primer jugador
+    players[myId] = {
+      name: myName, 
+      x: 200, y: 400, 
+      targetX: 200, targetY: 400, 
+      lives: 2, weapon: null, 
+      alive: true, 
+      color: PLAYER_COLORS[0], 
+      sitting: false, 
+      frame: 0, facing: 1
+    };
     updatePlayersList();
   });
-  peer.on('connection', c => {
-    if (Object.keys(players).length >= 4) { c.send({type:'full'}); c.close(); return; }
+
+  peer.on('connection', (c) => {
+    if (Object.keys(players).length >= 4) { 
+      c.send({type:'full'}); 
+      setTimeout(() => c.close(), 100); 
+      return; 
+    }
+    
     connections.push(c);
-    c.on('open', () => { c.on('message', handleMsg); });
+    
+    c.on('open', () => {
+      c.on('message', (data) => handleMsg(data, c));
+    });
+    
+    c.on('close', () => {
+      // Eliminar jugador desconectado
+      const playerId = Object.keys(players).find(id => players[id].name === c.metadata?.name);
+      if (playerId) {
+        delete players[playerId];
+        broadcast({type:'sync', players: players});
+        updatePlayersList();
+      }
+      connections = connections.filter(conn => conn !== c);
+    });
+  });
+  
+  peer.on('error', (err) => {
+    console.error(err);
+    alert('Error al crear sala: ' + err.type);
   });
 }
 
@@ -284,50 +314,127 @@ function joinRoom() {
   myName = document.getElementById('playerName').value.trim();
   roomId = document.getElementById('joinId').value.trim();
   if (!myName || !roomId) { alert('Completa los campos'); return; }
+  
+  document.getElementById('status').textContent = 'Buscando sala...';
+  
   peer = new Peer();
-  peer.on('open', id => {
+  
+  peer.on('open', (id) => {
     myId = id;
-    conn = peer.connect(roomId);
+    conn = peer.connect(roomId, {
+      metadata: { name: myName }
+    });
+    
     conn.on('open', () => {
-      conn.send({type:'join', name: myName, id: myId});
-      conn.on('message', handleMsg);
       document.getElementById('menu').style.display = 'none';
       document.getElementById('lobby').style.display = 'flex';
       document.getElementById('roomId').textContent = 'Conectado a: ' + roomId;
+      document.getElementById('status').textContent = 'Conectado. Esperando inicio...';
+      
+      // Enviar datos de unión
+      conn.send({type:'join', name: myName, id: myId});
+      
+      conn.on('message', (data) => handleMsg(data));
     });
+    
+    conn.on('error', (err) => {
+      alert('Error de conexión: ' + err);
+      location.reload();
+    });
+    
+    conn.on('close', () => {
+      alert('Conexión perdida con el host');
+      location.reload();
+    });
+  });
+  
+  peer.on('error', (err) => {
+    alert('Error al conectar: ' + err.type);
   });
 }
 
-// ============ MENSAJERÍA ============
-function handleMsg(data) {
-  if (data.type === 'full') { alert('Sala llena'); location.reload(); return; }
-  if (data.type === 'join') {
-    if (Object.keys(players).length >= 4) return;
-    const colorIdx = Object.keys(players).length;
-    players[data.id] = {name: data.name, x: 200 + colorIdx*50, y: 400, targetX: 200+colorIdx*50, targetY: 400, lives: 2, weapon: null, alive: true, color: PLAYER_COLORS[colorIdx], sitting: false, frame: 0, facing: 1};
-    updatePlayersList();
-    broadcast({type:'sync', players: players, chairs: chairs});
+// ============ MENSAJERÍA ROBUSTA ============
+function handleMsg(data, senderConn = null) {
+  if (data.type === 'full') { 
+    alert('Sala llena'); 
+    location.reload(); 
+    return; 
   }
+  
+  if (data.type === 'join') {
+    if (!isHost) return;
+    if (Object.keys(players).length >= 4) {
+      if (senderConn) senderConn.send({type:'full'});
+      return;
+    }
+    
+    const colorIdx = Object.keys(players).length;
+    players[data.id] = {
+      name: data.name, 
+      x: 200 + colorIdx*50, y: 400, 
+      targetX: 200+colorIdx*50, targetY: 400, 
+      lives: 2, weapon: null, 
+      alive: true, 
+      color: PLAYER_COLORS[colorIdx], 
+      sitting: false, frame: 0, facing: 1
+    };
+    
+    updatePlayersList();
+    
+    // Enviar estado actual al nuevo jugador
+    if (senderConn) {
+      senderConn.send({
+        type:'sync', 
+        players: players, 
+        chairs: chairs,
+        boxes: boxes,
+        duolingoTimer: duolingoTimer,
+        gameStarted: gameStarted
+      });
+    }
+    
+    // Avisar a todos que hay un nuevo jugador
+    broadcast({type:'sync', players: players});
+  }
+  
   if (data.type === 'sync') {
     players = data.players;
     if (data.chairs) chairs = data.chairs;
+    if (data.boxes) boxes = data.boxes;
+    if (data.duolingoTimer) duolingoTimer = data.duolingoTimer;
+    if (data.gameStarted && !gameStarted) {
+      gameStarted = true;
+      document.getElementById('lobby').style.display = 'none';
+      document.getElementById('game').style.display = 'block';
+      resizeCanvas();
+      gameLoop();
+      startTimer();
+    }
     updatePlayersList();
   }
+  
   if (data.type === 'move') {
     if (players[data.id]) {
       players[data.id].targetX = data.x;
       players[data.id].targetY = data.y;
     }
   }
+  
   if (data.type === 'sit') {
     if (players[data.id]) {
       players[data.id].sitting = data.sitting;
-      if (data.sitting) {
+      if (data.sitting && data.chairIdx !== undefined) {
         const chair = chairs[data.chairIdx];
-        if (chair) { players[data.id].x = chair.x; players[data.id].y = chair.y; }
+        if (chair) { 
+          players[data.id].x = chair.x; 
+          players[data.id].y = chair.y; 
+          players[data.id].targetX = chair.x;
+          players[data.id].targetY = chair.y;
+        }
       }
     }
   }
+  
   if (data.type === 'start') {
     gameStarted = true;
     players = data.players;
@@ -339,15 +446,18 @@ function handleMsg(data) {
     gameLoop();
     startTimer();
   }
+  
   if (data.type === 'duolingo_spawn') {
     duolingo = data.duolingo;
     playSound('duo_spawn');
     showMsg('🦉 ¡DUOLINGO HA LLEGADO!');
     screenShake = 20;
   }
+  
   if (data.type === 'duolingo_move') {
     duolingo = data.duolingo;
   }
+  
   if (data.type === 'question') {
     if (players[myId] && players[myId].sitting) {
       showMsg('🪑 Estás sentado, Duolingo te ignora...');
@@ -359,6 +469,7 @@ function handleMsg(data) {
     document.getElementById('answer').value = '';
     document.getElementById('answer').focus();
   }
+  
   if (data.type === 'answer_result') {
     document.getElementById('dialog').style.display = 'none';
     if (data.correct) {
@@ -376,6 +487,7 @@ function handleMsg(data) {
     }
     currentQuestion = null;
   }
+  
   if (data.type === 'open_box') {
     const box = boxes.find(b => b.id === data.boxId);
     if (box && !box.opened) {
@@ -391,23 +503,25 @@ function handleMsg(data) {
       } else {
         showMsg('📦 Caja vacía...');
       }
-      // Partículas
       for (let i = 0; i < 15; i++) {
         particles.push({x: box.x+25, y: box.y+25, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4 - 2, life: 40, color: data.weapon ? '#ffcc00' : '#8b5a2b'});
       }
     }
   }
+  
   if (data.type === 'boxes_respawn') {
     boxes = data.boxes;
     showMsg('📦 ¡Las cajas han reaparecido!');
     playSound('box');
   }
+  
   if (data.type === 'vote_start') {
     voting = true;
     votes = {};
     document.getElementById('votePanel').style.display = 'block';
     updateVoteCount();
   }
+  
   if (data.type === 'vote') {
     votes[data.id] = data.vote;
     updateVoteCount();
@@ -415,6 +529,7 @@ function handleMsg(data) {
       resolveVote();
     }
   }
+  
   if (data.type === 'vote_result') {
     document.getElementById('votePanel').style.display = 'none';
     voting = false;
@@ -425,6 +540,7 @@ function handleMsg(data) {
       showMsg('🏃 Duolingo hace su pregunta...');
     }
   }
+  
   if (data.type === 'fight_attack') {
     if (duolingo) {
       duolingo.hp -= data.damage;
@@ -444,6 +560,7 @@ function handleMsg(data) {
       }
     }
   }
+  
   if (data.type === 'player_died') {
     players[data.id].lives = 0;
     players[data.id].alive = false;
@@ -453,7 +570,9 @@ function handleMsg(data) {
 }
 
 function broadcast(data) {
-  connections.forEach(c => { if (c.open) c.send(data); });
+  connections.forEach(c => { 
+    if (c.open) c.send(data); 
+  });
 }
 
 function updatePlayersList() {
@@ -482,19 +601,19 @@ function startGame() {
       opened: false
     });
   }
-  // 4 sillas distribuidas
   chairs = [
     {x: 150, y: 200, idx: 0},
     {x: WORLD_W - 150, y: 200, idx: 1},
     {x: 150, y: WORLD_H - 200, idx: 2},
     {x: WORLD_W - 150, y: WORLD_H - 200, idx: 3}
   ];
+  
   const startData = {type:'start', players: players, boxes: boxes, chairs: chairs};
   broadcast(startData);
   handleMsg(startData);
 }
 
-// ============ CANVAS ============
+// ============ CANVAS Y DIBUJO ============
 function resizeCanvas() {
   const scale = Math.min(window.innerWidth / WORLD_W, window.innerHeight / WORLD_H);
   canvas.width = WORLD_W * scale;
@@ -508,6 +627,7 @@ canvas.addEventListener('click', e => {
   initAudio();
   if (!gameStarted || !players[myId] || !players[myId].alive) return;
   if (players[myId].sitting) return;
+  
   const rect = canvas.getBoundingClientRect();
   const scale = canvas.width / WORLD_W;
   const x = (e.clientX - rect.left) / scale;
@@ -571,7 +691,6 @@ function toggleSit() {
     conn ? conn.send(data) : broadcast(data);
     playSound('sit');
   } else {
-    // Buscar silla cercana
     let closest = null, minDist = Infinity, closestIdx = -1;
     chairs.forEach((c, i) => {
       const d = Math.hypot(players[myId].x - c.x, players[myId].y - c.y);
@@ -603,30 +722,38 @@ function openBox(box, playerId) {
   handleMsg(data);
 }
 
+// Host maneja peticiones de abrir caja
+if (peer) {
+  peer.on('connection', c => {
+    c.on('message', data => {
+      if (data.type === 'open_box_req' && isHost) {
+        const box = boxes.find(b => b.id === data.boxId);
+        if (box && !box.opened) openBox(box, data.playerId);
+      }
+    });
+  });
+}
+
 // ============ DIBUJO MEJORADO ============
 function drawBackground() {
-  // Suelo de sótano con textura
   const grad = ctx.createRadialGradient(WORLD_W/2, WORLD_H/2, 100, WORLD_W/2, WORLD_H/2, 700);
   grad.addColorStop(0, '#4a3020');
   grad.addColorStop(1, '#1a0808');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, WORLD_W, WORLD_H);
   
-  // Ladrillos mejorados
   for (let y = 0; y < WORLD_H; y += 40) {
     for (let x = 0; x < WORLD_W; x += 80) {
       const offset = (y / 40) % 2 === 0 ? 0 : 40;
       const shade = 30 + ((x*7 + y*13) % 20);
       ctx.fillStyle = `rgb(${shade+20}, ${shade}, ${shade-10})`;
       ctx.fillRect(x + offset, y, 78, 38);
-      // Grietas
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x + offset, y, 78, 38);
     }
   }
   
-  // Manchas de sangre/suciedad
   ctx.fillStyle = 'rgba(80, 10, 10, 0.4)';
   [[200, 300, 30], [800, 200, 25], [500, 500, 35], [1000, 400, 28], [300, 600, 22]].forEach(([x,y,r]) => {
     ctx.beginPath();
@@ -634,14 +761,12 @@ function drawBackground() {
     ctx.fill();
   });
   
-  // Paredes con textura
   ctx.fillStyle = '#0a0404';
   ctx.fillRect(0, 0, WORLD_W, 40);
   ctx.fillRect(0, WORLD_H-40, WORLD_W, 40);
   ctx.fillRect(0, 0, 40, WORLD_H);
   ctx.fillRect(WORLD_W-40, 0, 40, WORLD_H);
   
-  // Tuberías en la pared superior
   ctx.strokeStyle = '#555';
   ctx.lineWidth = 6;
   ctx.beginPath();
@@ -653,7 +778,6 @@ function drawBackground() {
   ctx.moveTo(50, 18); ctx.lineTo(WORLD_W-50, 18);
   ctx.stroke();
   
-  // Cadenas colgando
   for (let i = 0; i < 5; i++) {
     const x = 150 + i * 230;
     ctx.strokeStyle = '#888';
@@ -665,7 +789,6 @@ function drawBackground() {
     }
   }
   
-  // Calaveras decorativas
   [[100, 100], [WORLD_W-100, 100], [100, WORLD_H-100], [WORLD_W-100, WORLD_H-100]].forEach(([x,y]) => {
     ctx.fillStyle = '#ddd';
     ctx.beginPath();
@@ -680,26 +803,21 @@ function drawBackground() {
 
 function drawChair(chair) {
   const x = chair.x, y = chair.y;
-  // Sombra
   ctx.fillStyle = 'rgba(0,0,0,0.4)';
   ctx.beginPath();
   ctx.ellipse(x, y+25, 20, 5, 0, 0, Math.PI*2);
   ctx.fill();
-  // Patas
   ctx.fillStyle = '#3a2410';
   ctx.fillRect(x-15, y+5, 4, 20);
   ctx.fillRect(x+11, y+5, 4, 20);
   ctx.fillRect(x-15, y-15, 4, 20);
   ctx.fillRect(x+11, y-15, 4, 20);
-  // Asiento
   ctx.fillStyle = '#6b3410';
   ctx.fillRect(x-18, y, 36, 8);
-  // Respaldo
   ctx.fillStyle = '#8b4513';
   ctx.fillRect(x-18, y-25, 36, 8);
   ctx.fillRect(x-18, y-25, 4, 25);
   ctx.fillRect(x+14, y-25, 4, 25);
-  // Detalles
   ctx.fillStyle = '#4a2408';
   ctx.fillRect(x-14, y-20, 28, 2);
 }
@@ -709,14 +827,12 @@ function drawBox(box) {
   const shake = box.opened && t < 300 ? Math.sin(t/20) * 2 : 0;
   const x = box.x + shake, y = box.y;
   
-  // Sombra
   ctx.fillStyle = 'rgba(0,0,0,0.4)';
   ctx.beginPath();
   ctx.ellipse(box.x+25, box.y+box.h+3, 25, 6, 0, 0, Math.PI*2);
   ctx.fill();
   
   if (box.opened) {
-    // Caja abierta
     ctx.fillStyle = '#4a2a08';
     ctx.fillRect(x, y+20, box.w, box.h-20);
     ctx.fillStyle = '#6a3a18';
@@ -724,20 +840,16 @@ function drawBox(box) {
     ctx.fillStyle = '#3a1a00';
     ctx.fillRect(x, y+10, box.w, 3);
   } else {
-    // Caja cerrada con brillo
     const glow = Math.sin(Date.now()/300) * 0.2 + 0.8;
     ctx.fillStyle = `rgb(${Math.floor(139*glow)}, ${Math.floor(90*glow)}, ${Math.floor(43*glow)})`;
     ctx.fillRect(x, y, box.w, box.h);
-    // Refuerzo
     ctx.fillStyle = '#5a3a1b';
     ctx.fillRect(x, y+box.h/2-2, box.w, 4);
     ctx.fillRect(x+box.w/2-2, y, 4, box.h);
-    // Cerradura brillante
     ctx.fillStyle = '#ffcc00';
     ctx.fillRect(x+box.w/2-4, y+box.h/2-4, 8, 8);
     ctx.fillStyle = '#fff';
     ctx.fillRect(x+box.w/2-2, y+box.h/2-2, 2, 2);
-    // Bordes
     ctx.strokeStyle = '#2a1a08';
     ctx.lineWidth = 2;
     ctx.strokeRect(x, y, box.w, box.h);
@@ -746,7 +858,6 @@ function drawBox(box) {
 
 function drawPlayer(p) {
   if (!p.alive) {
-    // Calavera en el suelo
     ctx.fillStyle = '#ddd';
     ctx.beginPath();
     ctx.arc(p.x, p.y, 10, 0, Math.PI*2);
@@ -760,62 +871,46 @@ function drawPlayer(p) {
   const bob = p.sitting ? 0 : Math.sin(Date.now()/150) * 1;
   const f = p.facing;
   
-  // Sombra
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.beginPath();
   ctx.ellipse(x, y+22, 12, 4, 0, 0, Math.PI*2);
   ctx.fill();
   
   if (p.sitting) {
-    // Posición sentada
-    // Piernas dobladas
     ctx.fillStyle = '#222';
     ctx.fillRect(x-8, y+5, 16, 6);
-    // Cuerpo
     ctx.fillStyle = p.color;
     ctx.fillRect(x-10, y-12, 20, 18);
-    // Cabeza
     ctx.fillStyle = p.color;
     ctx.fillRect(x-8, y-26+bob, 16, 16);
-    // Ojos
     ctx.fillStyle = '#000';
     ctx.fillRect(x-5*f-2, y-22+bob, 3, 3);
     ctx.fillRect(x+2*f-1, y-22+bob, 3, 3);
-    // Boca
     ctx.fillRect(x-2, y-15+bob, 4, 1);
   } else {
-    // Piernas animadas
     const walk = Math.sin(Date.now()/100) * 3;
     ctx.fillStyle = '#222';
     ctx.fillRect(x-8, y+10, 6, 12 + (walk > 0 ? walk : 0));
     ctx.fillRect(x+2, y+10, 6, 12 + (walk < 0 ? -walk : 0));
-    // Cuerpo
     ctx.fillStyle = p.color;
     ctx.fillRect(x-10, y-8+bob, 20, 20);
-    // Detalle de ropa
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.fillRect(x-10, y+5+bob, 20, 3);
-    // Cabeza
     ctx.fillStyle = p.color;
     ctx.fillRect(x-8, y-24+bob, 16, 16);
-    // Pelo
     ctx.fillStyle = '#2a1a0a';
     ctx.fillRect(x-8, y-24+bob, 16, 4);
-    // Ojos
     ctx.fillStyle = '#fff';
     ctx.fillRect(x-5, y-20+bob, 4, 4);
     ctx.fillRect(x+1, y-20+bob, 4, 4);
     ctx.fillStyle = '#000';
     ctx.fillRect(x-4+f, y-19+bob, 2, 2);
     ctx.fillRect(x+2+f, y-19+bob, 2, 2);
-    // Boca
     ctx.fillStyle = '#000';
     ctx.fillRect(x-2, y-13+bob, 4, 1);
-    // Brazos
     ctx.fillStyle = p.color;
     ctx.fillRect(x-13, y-6+bob, 4, 12);
     ctx.fillRect(x+9, y-6+bob, 4, 12);
-    // Arma
     if (p.weapon) {
       ctx.fillStyle = '#444';
       ctx.fillRect(x+11*f, y-3+bob, 18*f, 4);
@@ -824,7 +919,6 @@ function drawPlayer(p) {
     }
   }
   
-  // Nombre con fondo
   ctx.font = 'bold 12px Courier New';
   ctx.textAlign = 'center';
   const nameY = p.sitting ? y-32 : y-30+bob;
@@ -834,7 +928,6 @@ function drawPlayer(p) {
   ctx.fillStyle = '#fff';
   ctx.fillText(p.name, x, nameY);
   
-  // Indicador de arma
   if (p.weapon) {
     ctx.fillStyle = 'rgba(0,0,0,0.7)';
     ctx.fillRect(x-20, nameY-22, 40, 10);
@@ -850,13 +943,11 @@ function drawDuolingo() {
   const bob = Math.sin(Date.now()/200) * 3;
   const flash = duolingo.hitFlash > 0;
   
-  // Sombra
   ctx.fillStyle = 'rgba(0,0,0,0.6)';
   ctx.beginPath();
   ctx.ellipse(x, y+35, 25, 7, 0, 0, Math.PI*2);
   ctx.fill();
   
-  // Aura roja si está enojado
   if (fightMode) {
     ctx.fillStyle = `rgba(255,0,0,${0.2 + Math.sin(Date.now()/100)*0.1})`;
     ctx.beginPath();
@@ -864,27 +955,22 @@ function drawDuolingo() {
     ctx.fill();
   }
   
-  // Cuerpo (búho)
   ctx.fillStyle = flash ? '#fff' : '#58cc02';
   ctx.fillRect(x-25, y-30+bob, 50, 55);
   ctx.fillStyle = flash ? '#fff' : '#45a802';
   ctx.fillRect(x-25, y+15+bob, 50, 10);
-  
-  // Barriga blanca
   ctx.fillStyle = flash ? '#fff' : '#ffffff';
   ctx.fillRect(x-15, y-5+bob, 30, 25);
   
-  // Ojos grandes
   ctx.fillStyle = '#fff';
   ctx.beginPath();
   ctx.arc(x-10, y-18+bob, 9, 0, Math.PI*2);
   ctx.arc(x+10, y-18+bob, 9, 0, Math.PI*2);
   ctx.fill();
   
-  // Pupilas (miran al jugador más cercano)
   let targetX = x, targetY = y;
   Object.values(players).forEach(p => {
-    if (p.alive) { targetX = p.x; targetY = p.y; }
+    if (p.alive && !p.sitting) { targetX = p.x; targetY = p.y; }
   });
   const dx = targetX - x, dy = targetY - y;
   const d = Math.hypot(dx, dy) || 1;
@@ -896,7 +982,6 @@ function drawDuolingo() {
   ctx.arc(x+10+px, y-18+bob+py, 4, 0, Math.PI*2);
   ctx.fill();
   
-  // Pico
   ctx.fillStyle = flash ? '#fff' : '#ff9600';
   ctx.beginPath();
   ctx.moveTo(x-6, y-5+bob);
@@ -905,17 +990,14 @@ function drawDuolingo() {
   ctx.closePath();
   ctx.fill();
   
-  // Patas
   ctx.fillStyle = flash ? '#fff' : '#ff9600';
   ctx.fillRect(x-18, y+25+bob, 10, 8);
   ctx.fillRect(x+8, y+25+bob, 10, 8);
   
-  // Ala
   ctx.fillStyle = flash ? '#fff' : '#3a8a02';
   ctx.fillRect(x-28, y-10+bob, 8, 25);
   ctx.fillRect(x+20, y-10+bob, 8, 25);
   
-  // Barra de vida
   if (duolingo.hp < duolingo.maxHp) {
     ctx.fillStyle = '#000';
     ctx.fillRect(x-30, y-45+bob, 60, 8);
@@ -939,14 +1021,12 @@ function drawParticles() {
 }
 
 function drawLighting() {
-  // Efecto de viñeta oscura
   const grad = ctx.createRadialGradient(WORLD_W/2, WORLD_H/2, 200, WORLD_W/2, WORLD_H/2, 700);
   grad.addColorStop(0, 'rgba(0,0,0,0)');
   grad.addColorStop(1, 'rgba(0,0,0,0.7)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, WORLD_W, WORLD_H);
   
-  // Luces parpadeantes (velas)
   const flicker = Math.sin(Date.now()/100) * 0.1 + 0.9;
   [[100, 100], [WORLD_W-100, 100], [100, WORLD_H-100], [WORLD_W-100, WORLD_H-100]].forEach(([x,y]) => {
     const lg = ctx.createRadialGradient(x, y, 0, x, y, 100);
@@ -954,7 +1034,6 @@ function drawLighting() {
     lg.addColorStop(1, 'rgba(255, 150, 50, 0)');
     ctx.fillStyle = lg;
     ctx.fillRect(x-100, y-100, 200, 200);
-    // Llama
     ctx.fillStyle = '#ffaa00';
     ctx.fillRect(x-2, y-8, 4, 6);
     ctx.fillStyle = '#ffff00';
@@ -967,7 +1046,6 @@ function draw() {
   const scale = canvas.width / WORLD_W;
   ctx.save();
   
-  // Screen shake
   if (screenShake > 0) {
     ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
     screenShake *= 0.9;
@@ -980,7 +1058,6 @@ function draw() {
   chairs.forEach(drawChair);
   boxes.forEach(drawBox);
   
-  // Ordenar por Y para profundidad
   const allEntities = [
     ...Object.values(players).map(p => ({type:'player', data:p, y:p.y})),
     ...(duolingo ? [{type:'duo', data:duolingo, y:duolingo.y}] : [])
@@ -997,7 +1074,7 @@ function draw() {
   ctx.restore();
 }
 
-// ============ LÓGICA ============
+// ============ LÓGICA DEL JUEGO ============
 function updatePlayers() {
   Object.values(players).forEach(p => {
     if (!p.alive || p.sitting) return;
@@ -1008,7 +1085,6 @@ function updatePlayers() {
       p.x += (dx/dist) * 2.5;
       p.y += (dy/dist) * 2.5;
       p.facing = dx > 0 ? 1 : -1;
-      // Sonido de pasos
       if (Date.now() - lastStepTime > 250 && p === players[myId]) {
         playSound('step');
         lastStepTime = Date.now();
@@ -1031,7 +1107,6 @@ function updateParticles() {
 
 function updateDuolingo() {
   if (!duolingo) return;
-  // Buscar jugador más cercano que NO esté sentado
   let target = null;
   let minDist = Infinity;
   Object.values(players).forEach(p => {
@@ -1071,12 +1146,11 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-// ============ TIMER ============
+// ============ TIMERS ============
 function startTimer() {
   setInterval(() => {
     if (!gameStarted) return;
     
-    // Timer Duolingo
     if (!duolingo && !voting && !fightMode) {
       duolingoTimer--;
       const m = Math.floor(duolingoTimer/60);
@@ -1085,11 +1159,14 @@ function startTimer() {
       if (duolingoTimer <= 0) spawnDuolingo();
     }
     
-    // Respawn de cajas
     if (isHost) {
       boxRespawnTimer--;
       if (boxRespawnTimer <= 0) {
-        boxes.forEach(b => { b.opened = false; b.x = 100 + Math.random() * (WORLD_W - 200); b.y = 150 + Math.random() * (WORLD_H - 300); });
+        boxes.forEach(b => { 
+          b.opened = false; 
+          b.x = 100 + Math.random() * (WORLD_W - 200); 
+          b.y = 150 + Math.random() * (WORLD_H - 300); 
+        });
         broadcast({type:'boxes_respawn', boxes: boxes});
         handleMsg({type:'boxes_respawn', boxes: boxes});
         boxRespawnTimer = 30;
