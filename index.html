@@ -1,1417 +1,1158 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Escape del Sótano - Multijugador v4</title>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>Zombie Survival — 2 Jugadores</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', monospace; }
-  body { background: #000; color: #eee; overflow: hidden; user-select: none; -webkit-touch-callout: none; }
-  #menu, #lobby, #game { position: absolute; top:0; left:0; width:100vw; height:100vh; }
-  #menu, #lobby { display:flex; flex-direction:column; align-items:center; justify-content:center; background:radial-gradient(circle, #1a0a0a 0%, #000 100%); z-index:10; }
-  #game { display:none; }
-  h1 { color:#ffcc00; font-size:42px; margin-bottom:20px; text-shadow:3px 3px 0 #000, 0 0 20px #ff6600; letter-spacing:2px; text-align: center; }
-  h2 { color:#ff6666; margin-bottom:10px; text-shadow:2px 2px #000; text-align: center; }
-  input, button { padding:12px 24px; margin:6px; font-size:16px; border:2px solid #ffcc00; background:#222; color:#fff; cursor:pointer; font-family:inherit; transition:all 0.2s; border-radius: 8px; }
-  input:focus { outline:none; background:#333; box-shadow:0 0 10px #ffcc00; }
-  button:hover { background:#ffcc00; color:#000; transform:scale(1.05); box-shadow:0 0 15px #ffcc00; }
-  #roomId { font-size:24px; color:#00ff00; background:#000; padding:12px 20px; border:2px dashed #00ff00; margin:10px; text-shadow:0 0 10px #00ff00; text-align: center; word-break: break-all; }
-  #playersList { margin:15px; padding:15px; background:rgba(0,0,0,0.8); border:2px solid #555; min-width:320px; border-radius: 10px; }
-  .playerItem { padding:6px; color:#ffcc00; border-bottom:1px solid #333; }
-
-  canvas { display:block; cursor:crosshair; margin:auto; touch-action: none; image-rendering: pixelated; }
-
-  #hud { position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.85); padding:12px; border:2px solid #ffcc00; z-index:5; min-width:180px; box-shadow:0 0 20px rgba(255,204,0,0.3); border-radius: 10px; pointer-events: none; }
-  .lifeRow { margin:4px 0; color:#fff; font-size:14px; }
-  .heart { color:#ff3333; text-shadow:0 0 5px #ff0000; }
-  #dialog { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:linear-gradient(135deg, #1a0a0a, #000); border:4px solid #ffcc00; padding:25px; z-index:20; display:none; min-width:450px; text-align:center; box-shadow:0 0 40px rgba(255,204,0,0.5); border-radius: 15px; }
-  #dialog h3 { color:#ff6666; margin-bottom:15px; font-size:22px; text-shadow:0 0 10px #ff0000; }
-  #dialog h3.secuaz { color:#a020f0; text-shadow:0 0 12px #8b00ff; }
-  #dialog input { width:100%; font-size: 18px; text-align: center; }
-  #votePanel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:linear-gradient(135deg, #0a1a0a, #000); border:4px solid #00ff00; padding:25px; z-index:20; display:none; text-align:center; box-shadow:0 0 40px rgba(0,255,0,0.5); border-radius: 15px; }
-  #msgBox { position:absolute; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.95); color:#ffcc00; padding:12px 24px; border:2px solid #ffcc00; z-index:15; display:none; font-size:18px; text-shadow:0 0 10px #ffcc00; box-shadow:0 0 20px rgba(255,204,0,0.5); border-radius: 10px; pointer-events: none; opacity: 0; transition: opacity 0.3s ease-in-out; }
-  #timer { position:absolute; top:10px; left:10px; color:#ff3333; font-size:22px; background:rgba(0,0,0,0.85); padding:10px 15px; border:2px solid #ff3333; z-index:5; text-shadow:0 0 10px #ff0000; box-shadow:0 0 15px rgba(255,0,0,0.3); border-radius: 10px; pointer-events: none; }
-  #weaponInfo { position:absolute; top:65px; left:10px; color:#00ff00; font-size:16px; background:rgba(0,0,0,0.85); padding:10px 15px; border:2px solid #00ff00; z-index:5; display:none; text-shadow:0 0 10px #00ff00; border-radius: 10px; pointer-events: none; }
-  #secuazInfo { position:absolute; top:10px; left:50%; transform:translateX(-50%); color:#d080ff; font-size:14px; background:rgba(0,0,0,0.9); padding:8px 18px; border:2px solid #8b00ff; z-index:5; display:none; text-shadow:0 0 10px #a020f0; box-shadow:0 0 15px rgba(139,0,255,0.4); border-radius: 10px; pointer-events: none; }
-  #secuazInfo b { color:#ffcc00; }
-  #sitBtn { position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.85); color:#ffcc00; padding:10px 15px; border:2px solid #ffcc00; z-index:5; font-size:16px; cursor:pointer; font-weight: bold; }
-  #sitBtn:hover { background:#ffcc00; color:#000; }
-  #soundToggle { position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85); color:#ffcc00; padding:8px 12px; border:2px solid #ffcc00; z-index:5; cursor:pointer; font-size: 20px; }
-  #status { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); color:#888; font-size:12px; }
-
-  /* Adaptación para Celulares */
-  @media (max-width: 768px) {
-    h1 { font-size: 28px; }
-    h2 { font-size: 18px; }
-    input, button { padding: 10px 16px; font-size: 14px; }
-    #playersList { min-width: 90%; }
-    #hud { bottom: 65px; left: 5px; right: auto; min-width: 140px; padding: 8px; }
-    #timer { font-size: 16px; padding: 8px; }
-    #weaponInfo { top: 50px; font-size: 14px; padding: 8px; }
-    #secuazInfo { font-size: 12px; padding: 6px 10px; top: 5px; }
-    #dialog { width: 95%; min-width: 0; top: 35%; padding: 15px; } /* Más arriba para que no lo tape el teclado */
-    #votePanel { width: 95%; min-width: 0; padding: 15px; }
-    #sitBtn { bottom: 5px; left: 5px; width: calc(100% - 10px); padding: 15px; text-align: center; font-size: 18px; box-shadow: 0 0 15px rgba(0,0,0,0.8); }
-    #msgBox { width: 90%; text-align: center; font-size: 14px; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: #0a0a0a; color: #e8e8e8;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden; touch-action: none;
   }
+  #app { position: relative; width: 100%; height: 100%; }
+
+  /* === MENUS === */
+  .screen {
+    position: absolute; inset: 0;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px; text-align: center; z-index: 10;
+    background: radial-gradient(ellipse at center, #1a0f0f 0%, #050505 100%);
+  }
+  .screen.active { display: flex; }
+  h1 { font-size: clamp(28px, 6vw, 48px); color: #ff4040; text-shadow: 0 0 20px #ff2020; margin: 0 0 8px; letter-spacing: 2px; }
+  h2 { color: #ffaa55; margin: 0 0 20px; font-weight: 500; }
+  p { color: #aaa; margin: 6px 0; font-size: 14px; }
+  .small { font-size: 12px; color: #777; margin-top: 20px; }
+  input {
+    background: #1a1a1a; border: 2px solid #ff4040; color: #fff;
+    padding: 12px 20px; font-size: 18px; border-radius: 8px;
+    width: 100%; max-width: 320px; text-align: center;
+    text-transform: uppercase; letter-spacing: 3px; margin: 8px 0;
+    font-family: monospace;
+  }
+  input:focus { outline: none; box-shadow: 0 0 15px #ff404080; }
+  button {
+    background: linear-gradient(180deg, #d83030, #a02020);
+    color: white; border: none; padding: 14px 32px;
+    font-size: 16px; font-weight: bold; border-radius: 8px;
+    cursor: pointer; margin: 8px; min-width: 200px;
+    text-transform: uppercase; letter-spacing: 1px;
+    box-shadow: 0 4px 0 #601010, 0 6px 10px rgba(0,0,0,0.5);
+    transition: transform 0.05s, box-shadow 0.05s;
+  }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 #601010, 0 3px 5px rgba(0,0,0,0.5); }
+  button.secondary { background: linear-gradient(180deg, #444, #222); box-shadow: 0 4px 0 #111, 0 6px 10px rgba(0,0,0,0.5); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .code-display {
+    font-family: monospace; font-size: 36px; color: #ffdd55;
+    background: #000; padding: 16px 24px; border-radius: 8px;
+    border: 2px dashed #ffaa55; letter-spacing: 8px; margin: 12px 0;
+  }
+
+  /* === CLASS SELECT === */
+  #classSelect { gap: 12px; }
+  .class-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+    max-width: 500px; width: 100%; max-height: 60vh; overflow-y: auto;
+    padding: 10px;
+  }
+  @media (min-width: 600px) { .class-grid { grid-template-columns: repeat(3, 1fr); max-width: 700px; } }
+  .class-card {
+    background: #1a1a1a; border: 2px solid #333; border-radius: 10px;
+    padding: 12px; cursor: pointer; transition: all 0.15s;
+    text-align: left; min-height: 90px;
+  }
+  .class-card:hover { border-color: #ff8040; transform: translateY(-2px); }
+  .class-card.selected { border-color: #ffdd55; background: #2a2010; box-shadow: 0 0 20px #ffaa5550; }
+  .class-card .name { font-weight: bold; color: #ffdd55; font-size: 14px; }
+  .class-card .emoji { font-size: 28px; float: right; }
+  .class-card .desc { color: #aaa; font-size: 11px; margin-top: 4px; line-height: 1.3; }
+  .class-card .ability { color: #88ddff; font-size: 10px; margin-top: 4px; font-style: italic; }
+
+  /* === GAME === */
+  #gameScreen { padding: 0; background: #000; }
+  canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 10px 14px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.85), transparent);
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none; z-index: 5; font-size: 14px;
+  }
+  .hud-item { display: flex; align-items: center; gap: 6px; }
+  .bar { width: 120px; height: 12px; background: #333; border-radius: 6px; overflow: hidden; border: 1px solid #555; }
+  .bar-fill { height: 100%; transition: width 0.2s; }
+  .hp-fill { background: linear-gradient(90deg, #ff3030, #ff6060); }
+  .ability-fill { background: linear-gradient(90deg, #4080ff, #80c0ff); }
+  .ability-ready { background: linear-gradient(90deg, #ffdd55, #fff8aa); }
+
+  #mobileControls {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    display: none; padding: 14px; z-index: 6;
+    pointer-events: none;
+  }
+  #mobileControls .ctrl-btn {
+    pointer-events: auto;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.4);
+    color: white; border-radius: 50%;
+    width: 64px; height: 64px;
+    font-size: 24px; display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .ctrl-btn:active { background: rgba(255,255,255,0.4); }
+  #joystick {
+    position: absolute; bottom: 20px; left: 20px;
+    width: 130px; height: 130px;
+    background: rgba(255,255,255,0.1);
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    pointer-events: auto;
+  }
+  #joystickKnob {
+    width: 50px; height: 50px;
+    background: rgba(255,255,255,0.4);
+    border-radius: 50%;
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  #btnAttack {
+    position: absolute; bottom: 30px; right: 30px;
+    width: 80px; height: 80px;
+    background: rgba(255, 60, 60, 0.7);
+    border: 3px solid rgba(255, 120, 120, 0.9);
+    color: white; border-radius: 50%;
+    font-size: 14px; font-weight: bold;
+    pointer-events: auto;
+  }
+  #btnAbility {
+    position: absolute; bottom: 120px; right: 35px;
+    width: 64px; height: 64px;
+    background: rgba(80, 160, 255, 0.6);
+    border: 2px solid rgba(150, 200, 255, 0.8);
+    color: white; border-radius: 50%;
+    font-size: 11px; font-weight: bold;
+    pointer-events: auto;
+  }
+
+  /* === GAME OVER === */
+  #gameOver { background: rgba(0,0,0,0.95); }
+  .big-text { font-size: clamp(36px, 8vw, 64px); color: #ff3030; text-shadow: 0 0 30px #ff0000; margin: 0; }
+  .winner { color: #ffdd55; }
+
+  #status { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 6px; font-size: 12px; z-index: 7; display: none; }
 </style>
 </head>
 <body>
+<div id="app">
 
-<div id="menu">
-  <h1>🦉 ESCAPE DEL SÓTANO 🦉</h1>
-  <h2>Elige tu nombre:</h2>
-  <input type="text" id="playerName" maxlength="12" placeholder="Tu nombre...">
-  <button onclick="createRoom()">🏠 Crear Sala (Host)</button>
-  <button onclick="showJoin()">🔗 Unirse a Sala</button>
-  <div id="joinBox" style="display:none; margin-top:10px; text-align: center;">
-    <input type="text" id="joinId" placeholder="ID de la sala..."><br>
-    <button onclick="joinRoom()">Entrar</button>
+  <!-- MAIN MENU -->
+  <div id="menu" class="screen active">
+    <h1>🧟 ZOMBIE SURVIVAL</h1>
+    <h2>2 Jugadores · Cross-Device</h2>
+    <div class="row">
+      <button id="btnCreate">🎮 Crear Partida</button>
+      <button id="btnJoin" class="secondary">🔗 Unirse con Código</button>
+    </div>
+    <p class="small">Un jugador crea, el otro mete el código. Funciona entre distintos países.</p>
   </div>
-  <p style="color:#888; margin-top:20px; font-size:12px; text-align:center;">🔊 Usa audífonos para mejor experiencia<br>🕹️ Soporta toques en celular</p>
-</div>
 
-<div id="lobby" style="display:none;">
-  <h1>SALA DE ESPERA</h1>
-  <div id="roomId"></div>
-  <div id="playersList"></div>
-  <div id="hostControls" style="display:none;">
-    <button onclick="startGame()" style="background:#00ff00; color:#000; font-size:20px; padding: 15px 30px;">▶ INICIAR PARTIDA</button>
+  <!-- LOBBY -->
+  <div id="lobby" class="screen">
+    <h1 id="lobbyTitle">Esperando...</h1>
+    <div id="lobbyContent"></div>
   </div>
-  <p style="color:#888; margin-top:20px;">Esperando jugadores... (máx. 4)</p>
-  <div id="status">Conectando...</div>
-</div>
 
-<div id="game">
-  <canvas id="canvas"></canvas>
-  <div id="timer">🦉 Duolingo: <span id="timeLeft">5:00</span></div>
-  <div id="weaponInfo">🔫 <span id="weaponName">Ninguna</span></div>
-  <div id="secuazInfo">👹 Secuaces: <b><span id="secuazCount">0</span>/5</b> &nbsp;|&nbsp; Próximos: <b><span id="secuazTimer">60</span>s</b></div>
-  <div id="hud"></div>
-  <div id="msgBox"></div>
-  <button id="sitBtn" onclick="toggleSit()">🪑 Sentarse</button>
-  <button id="soundToggle" onclick="toggleSound()">🔊</button>
-  <div id="dialog">
-    <h3 id="dialogTitle">🦉 DUOLINGO PREGUNTA:</h3>
-    <p id="question" style="font-size:20px; color:#fff; margin:15px 0;"></p>
-    <input type="text" id="answer" placeholder="Tu respuesta...">
-    <button onclick="submitAnswer()">Responder</button>
+  <!-- CLASS SELECT -->
+  <div id="classSelect" class="screen">
+    <h1>ELIGE TU CLASE</h1>
+    <h2 id="playerLabel">Jugador 1</h2>
+    <div class="class-grid" id="classGrid"></div>
+    <button id="btnReady" disabled>✅ Listo</button>
+    <p class="small" id="classHint">Esperando al otro jugador...</p>
   </div>
-  <div id="votePanel">
-    <h2 style="color:#00ff00;">🦉 ¡DUOLINGO SE ACERCA!</h2>
-    <p style="margin:15px 0;">¿Enfrentarlo con armas?</p>
-    <p id="voteCount" style="font-size:18px; color:#ffcc00;">Votos: 0/0</p>
-    <button onclick="castVote(true)" style="background:#00ff00; color:#000;">✅ SÍ</button>
-    <button onclick="castVote(false)" style="background:#ff3333; color:#000;">❌ NO</button>
+
+  <!-- GAME -->
+  <div id="gameScreen" class="screen">
+    <canvas id="canvas"></canvas>
+    <div id="hud">
+      <div class="hud-item">
+        <span>❤️</span>
+        <div class="bar"><div class="bar-fill hp-fill" id="hpBar" style="width:100%"></div></div>
+        <span id="hpText">100</span>
+      </div>
+      <div class="hud-item">
+        <span id="abilityIcon">⚡</span>
+        <div class="bar"><div class="bar-fill ability-fill" id="abilityBar" style="width:100%"></div></div>
+      </div>
+      <div class="hud-item">
+        <span>🧟</span><span id="waveText">1</span>
+        <span style="margin-left:10px">⭐</span><span id="scoreText">0</span>
+      </div>
+    </div>
+    <div id="mobileControls">
+      <div id="joystick"><div id="joystickKnob"></div></div>
+      <button id="btnAttack" class="ctrl-btn">ATK</button>
+      <button id="btnAbility" class="ctrl-btn">⚡</button>
+    </div>
+    <div id="status"></div>
   </div>
+
+  <!-- GAME OVER -->
+  <div id="gameOver" class="screen">
+    <h1 class="big-text" id="gameOverText">GAME OVER</h1>
+    <h2 id="gameOverSub" class="winner"></h2>
+    <div class="row">
+      <button id="btnRestart">🔄 Jugar de Nuevo</button>
+      <button id="btnMenu" class="secondary">🏠 Menú</button>
+    </div>
+  </div>
+
 </div>
 
 <script>
-// ============ SISTEMA DE AUDIO ============
-let audioCtx = null;
-let soundEnabled = true;
-let ambientOsc = null;
+// ============================================================
+//  ZOMBIE SURVIVAL — 2P Cross-Device via PeerJS
+// ============================================================
 
-function initAudio() {
-  if (audioCtx) {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    return;
-  }
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    startAmbient();
-  } catch(e) { console.log('Audio no disponible'); }
-}
+// ---------- CLASSES (10) ----------
+const CLASSES = [
+  { id: 'soldier',  name: 'Soldado',    emoji: '🎖️', color: '#88aa66', desc: 'Equilibrado, confiable.', ability: 'Granada: AoE damage + empuje', cd: 8 },
+  { id: 'necromancer', name: 'Necromante', emoji: '💀', color: '#aa55ff', desc: 'Revive zombies como aliados.', ability: 'Drenar vida de un zombie', cd: 6 },
+  { id: 'ice',      name: 'Hielo',      emoji: '❄️', color: '#55ddff', desc: 'Congela enemigos y crea muros.', ability: 'Rayo de hielo: congela varios', cd: 7 },
+  { id: 'fire',     name: 'Fuego',      emoji: '🔥', color: '#ff6633', desc: 'Quema en área, daña con el tiempo.', ability: 'Llamarada AoE', cd: 8 },
+  { id: 'medic',    name: 'Médico',     emoji: '💊', color: '#ff66aa', desc: 'Cura aliados y a sí misma.', ability: 'Curar aliado cercano', cd: 5 },
+  { id: 'sniper',   name: 'Francotirador', emoji: '🎯', color: '#cccc88', desc: 'Daño alto a distancia, lenta.', ability: 'Tiro certero: atraviesa', cd: 4 },
+  { id: 'engineer', name: 'Ingeniera',  emoji: '🔧', color: '#ffaa55', desc: 'Coloca torretas automáticas.', ability: 'Torreta: dispara sola', cd: 10 },
+  { id: 'shadow',   name: 'Sombra',     emoji: '🌑', color: '#6666aa', desc: 'Se vuelve invisible y letal.', ability: 'Furtividad: invisibilidad', cd: 8 },
+  { id: 'brawler',  name: 'Luchadora',  emoji: '👊', color: '#ff4444', desc: 'Daño melee brutal, poca vida.', ability: 'Ira: doble daño por 3s', cd: 7 },
+  { id: 'electric', name: 'Eléctrica',  emoji: '⚡', color: '#ffdd44', desc: 'Cadenas eléctricas entre zombies.', ability: 'Descarga: salta entre enemigos', cd: 6 },
+];
 
-function startAmbient() {
-  if (!audioCtx || !soundEnabled) return;
-  const osc1 = audioCtx.createOscillator();
-  const osc2 = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc1.type = 'sine'; osc1.frequency.value = 55;
-  osc2.type = 'sine'; osc2.frequency.value = 57;
-  gain.gain.value = 0.03;
-  osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
-  osc1.start(); osc2.start();
-  ambientOsc = {osc1, osc2, gain};
-}
-
-function playSound(type) {
-  if (!audioCtx || !soundEnabled) return;
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  const t = audioCtx.currentTime;
-  const g = audioCtx.createGain();
-  g.connect(audioCtx.destination);
-
-  if (type === 'step') {
-    const o = audioCtx.createOscillator();
-    o.type = 'square'; o.frequency.value = 80 + Math.random()*40;
-    g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.05);
-    o.connect(g); o.start(t); o.stop(t+0.05);
-  } else if (type === 'box') {
-    const o = audioCtx.createOscillator();
-    o.type = 'triangle'; o.frequency.setValueAtTime(400, t); o.frequency.exponentialRampToValueAtTime(100, t+0.2);
-    g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.2);
-    o.connect(g); o.start(t); o.stop(t+0.2);
-  } else if (type === 'weapon') {
-    [523, 659, 784].forEach((f, i) => {
-      const o = audioCtx.createOscillator();
-      const gg = audioCtx.createGain();
-      o.type = 'square'; o.frequency.value = f;
-      gg.gain.setValueAtTime(0.1, t+i*0.1); gg.gain.exponentialRampToValueAtTime(0.001, t+i*0.1+0.15);
-      o.connect(gg); gg.connect(audioCtx.destination);
-      o.start(t+i*0.1); o.stop(t+i*0.1+0.15);
-    });
-  } else if (type === 'duo_spawn') {
-    const o = audioCtx.createOscillator();
-    o.type = 'sawtooth'; o.frequency.setValueAtTime(100, t); o.frequency.exponentialRampToValueAtTime(400, t+0.8);
-    g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.001, t+1);
-    o.connect(g); o.start(t); o.stop(t+1);
-  } else if (type === 'secuaz_spawn') {
-    // Sonido más "demoníaco" para los secuaces
-    const o = audioCtx.createOscillator();
-    o.type = 'square'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(80, t+0.3);
-    g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.4);
-    o.connect(g); o.start(t); o.stop(t+0.4);
-    // Segundo tono superpuesto
-    const o2 = audioCtx.createOscillator();
-    const g2 = audioCtx.createGain();
-    o2.type = 'sawtooth'; o2.frequency.setValueAtTime(220, t+0.1); o2.frequency.exponentialRampToValueAtTime(110, t+0.5);
-    g2.gain.setValueAtTime(0.1, t+0.1); g2.gain.exponentialRampToValueAtTime(0.001, t+0.6);
-    o2.connect(g2); g2.connect(audioCtx.destination);
-    o2.start(t+0.1); o2.stop(t+0.6);
-  } else if (type === 'secuaz_correct') {
-    // Sonido místico cuando un secuaz se va
-    const o = audioCtx.createOscillator();
-    o.type = 'sine'; o.frequency.setValueAtTime(300, t); o.frequency.exponentialRampToValueAtTime(800, t+0.4);
-    g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.5);
-    o.connect(g); o.start(t); o.stop(t+0.5);
-  } else if (type === 'secuaz_wrong') {
-    // Sonido terrorífico cuando alguien falla
-    const o = audioCtx.createOscillator();
-    o.type = 'sawtooth'; o.frequency.setValueAtTime(250, t); o.frequency.exponentialRampToValueAtTime(40, t+0.6);
-    g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.7);
-    o.connect(g); o.start(t); o.stop(t+0.7);
-  } else if (type === 'shoot') {
-    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.2, audioCtx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random()*2-1) * Math.pow(1-i/data.length, 2);
-    const src = audioCtx.createBufferSource();
-    src.buffer = buf;
-    g.gain.value = 0.3;
-    src.connect(g); src.start(t);
-  } else if (type === 'correct') {
-    [523, 659, 784, 1047].forEach((f, i) => {
-      const o = audioCtx.createOscillator();
-      const gg = audioCtx.createGain();
-      o.type = 'sine'; o.frequency.value = f;
-      gg.gain.setValueAtTime(0.15, t+i*0.1); gg.gain.exponentialRampToValueAtTime(0.001, t+i*0.1+0.2);
-      o.connect(gg); gg.connect(audioCtx.destination);
-      o.start(t+i*0.1); o.stop(t+i*0.1+0.2);
-    });
-  } else if (type === 'wrong') {
-    [300, 200, 100].forEach((f, i) => {
-      const o = audioCtx.createOscillator();
-      const gg = audioCtx.createGain();
-      o.type = 'sawtooth'; o.frequency.value = f;
-      gg.gain.setValueAtTime(0.2, t+i*0.15); gg.gain.exponentialRampToValueAtTime(0.001, t+i*0.15+0.2);
-      o.connect(gg); gg.connect(audioCtx.destination);
-      o.start(t+i*0.15); o.stop(t+i*0.15+0.2);
-    });
-  } else if (type === 'death') {
-    const o = audioCtx.createOscillator();
-    o.type = 'sawtooth'; o.frequency.setValueAtTime(400, t); o.frequency.exponentialRampToValueAtTime(50, t+1);
-    g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t+1);
-    o.connect(g); o.start(t); o.stop(t+1);
-  } else if (type === 'sit') {
-    const o = audioCtx.createOscillator();
-    o.type = 'sine'; o.frequency.value = 200;
-    g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.1);
-    o.connect(g); o.start(t); o.stop(t+0.1);
-  } else if (type === 'hit') {
-    const o = audioCtx.createOscillator();
-    o.type = 'square'; o.frequency.setValueAtTime(200, t); o.frequency.exponentialRampToValueAtTime(50, t+0.15);
-    g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.15);
-    o.connect(g); o.start(t); o.stop(t+0.15);
-  }
-}
-
-function toggleSound() {
-  initAudio();
-  soundEnabled = !soundEnabled;
-  document.getElementById('soundToggle').textContent = soundEnabled ? '🔊' : '🔇';
-  if (ambientOsc) ambientOsc.gain.gain.value = soundEnabled ? 0.03 : 0;
-}
-
-// ============ VARIABLES GLOBALES ============
+// ---------- STATE ----------
 let peer = null;
-let conn = null; // Conexión al host
-let connections = []; // Conexiones a clientes
+let conn = null;
 let isHost = false;
-let myName = '';
-let myId = '';
-let roomId = '';
-let gameStarted = false;
+let myId = null;
+let roomCode = null;
+let myClass = null;
+let peerClass = null;
+let bothReady = false;
+let game = null;
 
-let players = {};
-let boxes = [];
-let chairs = [];
-let duolingo = null;
-let duolingoTimer = 300;
-let boxRespawnTimer = 30;
-let currentQuestion = null;
-let voting = false;
-let votes = {};
-let fightMode = false;
-let particles = [];
-let screenShake = 0;
-let lastStepTime = 0;
+// Mobile detection
+const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|Windows Phone/i.test(navigator.userAgent) || ('ontouchstart' in window);
 
-// === NUEVO: Sistema de Secuaces ===
-let secuaces = [];
-let secuazSpawnTimer = 60; // Cuenta regresiva de 60s para spawn
-let currentSecuaz = null; // Cuál secuaz está respondiendo el jugador local
+// ---------- HELPERS ----------
+function $(id) { return document.getElementById(id); }
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+function status(msg, ms = 2000) {
+  const el = $('status');
+  el.textContent = msg; el.style.display = 'block';
+  clearTimeout(el._t); el._t = setTimeout(() => el.style.display = 'none', ms);
+}
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = ''; for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
 
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const WORLD_W = 1200;
-const WORLD_H = 700;
+// ---------- PEER SETUP ----------
+function initPeer() {
+  return new Promise((resolve, reject) => {
+    const id = 'zs-' + genCode() + '-' + Math.random().toString(36).substr(2, 4);
+    const p = new Peer(id, { debug: 1 });
+    p.on('open', (myPeerId) => { myId = myPeerId; resolve(p); });
+    p.on('error', (err) => {
+      console.error(err);
+      if (err.type === 'unavailable-id') {
+        // try again with new id
+        initPeer().then(resolve).catch(reject);
+        return;
+      }
+      reject(err);
+    });
+  });
+}
 
-const QUESTIONS = [
-  {q: "¿Cómo se dice 'perro'?", a: "dog"},
-  {q: "¿Cómo se dice 'gato'?", a: "cat"},
-  {q: "¿Cómo se dice 'casa'?", a: "house"},
-  {q: "Traduce: 'I am happy'", a: "estoy feliz"},
-  {q: "¿Cómo se dice 'rojo'?", a: "red"},
-  {q: "¿Cómo se dice 'agua'?", a: "water"},
-  {q: "Traduce: 'Good morning'", a: "buenos dias"},
-  {q: "¿Cómo se dice 'libro'?", a: "book"},
-  {q: "¿Cómo se dice 'comer'?", a: "eat"},
-  {q: "Traduce: 'Thank you'", a: "gracias"},
-  {q: "¿Cómo se dice 'amigo'?", a: "friend"},
-  {q: "¿Cómo se dice 'escuela'?", a: "school"},
-  {q: "Traduce: 'I love you'", a: "te amo"},
-  {q: "¿Cómo se dice 'noche'?", a: "night"}
-];
+// ---------- MENU HANDLERS ----------
+$('btnCreate').onclick = async () => {
+  $('btnCreate').disabled = true; $('btnJoin').disabled = true;
+  status('Creando partida...', 99999);
+  try {
+    peer = await initPeer();
+    roomCode = myId.replace('zs-', '').split('-')[0];
+    isHost = true;
+    $('lobbyTitle').textContent = '🎮 PARTIDA CREADA';
+    $('lobbyContent').innerHTML = `
+      <p>Comparte este código con tu compañero:</p>
+      <div class="code-display">${roomCode}</div>
+      <p>Esperando conexión...</p>
+      <p class="small">También puedes compartir este link:<br>
+        <span style="color:#88ddff;font-family:monospace;font-size:11px">${location.href}#${roomCode}</span>
+      </p>
+    `;
+    showScreen('lobby');
+    status('');
 
-// === NUEVO: Banco de preguntas para los Secuaces (en INGLÉS) ===
-const SECUAZ_QUESTIONS = [
-  {q: "How do you say 'perro' in English?", a: "dog"},
-  {q: "How do you say 'gato' in English?", a: "cat"},
-  {q: "How do you say 'casa' in English?", a: "house"},
-  {q: "How do you say 'agua' in English?", a: "water"},
-  {q: "How do you say 'libro' in English?", a: "book"},
-  {q: "How do you say 'rojo' in English?", a: "red"},
-  {q: "How do you say 'amigo' in English?", a: "friend"},
-  {q: "How do you say 'feliz' in English?", a: "happy"},
-  {q: "How do you say 'noche' in English?", a: "night"},
-  {q: "How do you say 'escuela' in English?", a: "school"},
-  {q: "How do you say 'sí' in English?", a: "yes"},
-  {q: "How do you say 'hola' in English?", a: "hello"},
-  {q: "How do you say 'gracias' in English?", a: "thank you"},
-  {q: "How do you say 'por favor' in English?", a: "please"},
-  {q: "How do you say 'hoy' in English?", a: "today"},
-  {q: "How do you say 'mañana' in English?", a: "tomorrow"},
-  {q: "How do you say 'sol' in English?", a: "sun"},
-  {q: "How do you say 'luna' in English?", a: "moon"},
-  {q: "How do you say 'ciudad' in English?", a: "city"},
-  {q: "How do you say 'blanco' in English?", a: "white"},
-  {q: "How do you say 'negro' in English?", a: "black"},
-  {q: "How do you say 'verde' in English?", a: "green"},
-  {q: "How do you say 'azul' in English?", a: "blue"},
-  {q: "How do you say 'grande' in English?", a: "big"},
-  {q: "How do you say 'pequeño' in English?", a: "small"},
-  {q: "How do you say 'bueno' in English?", a: "good"},
-  {q: "How do you say 'malo' in English?", a: "bad"},
-  {q: "How do you say 'rápido' in English?", a: "fast"},
-  {q: "How do you say 'lento' in English?", a: "slow"},
-  {q: "How do you say 'caliente' in English?", a: "hot"},
-  {q: "How do you say 'frío' in English?", a: "cold"},
-  {q: "How do you say 'nuevo' in English?", a: "new"},
-  {q: "How do you say 'viejo' in English?", a: "old"},
-  {q: "How do you say 'alto' in English?", a: "tall"},
-  {q: "How do you say 'bajo' in English?", a: "short"},
-  {q: "How do you say 'uno' in English?", a: "one"},
-  {q: "How do you say 'dos' in English?", a: "two"},
-  {q: "How do you say 'tres' in English?", a: "three"},
-  {q: "How do you say 'cuatro' in English?", a: "four"},
-  {q: "How do you say 'cinco' in English?", a: "five"}
-];
-
-const WEAPONS = ['Pistola', 'Rifle', 'Bate', 'Cuchillo', 'Escopeta'];
-const PLAYER_COLORS = ['#ff6666', '#66ff66', '#6666ff', '#ffff66'];
-
-// ============ CONFIGURACIÓN DE RED (STUN) ============
-const peerConfig = {
-  config: {
-    'iceServers': [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' }
-    ]
+    peer.on('connection', (c) => {
+      conn = c;
+      setupConn();
+    });
+  } catch (e) {
+    alert('Error al crear partida: ' + e.message + '\nVerifica tu conexión e intenta de nuevo.');
+    $('btnCreate').disabled = false; $('btnJoin').disabled = false;
+    showScreen('menu');
   }
 };
 
-// ============ GESTIÓN DE CONEXIONES MEJORADA ============
-function showJoin() {
-  document.getElementById('joinBox').style.display = 'block';
+$('btnJoin').onclick = () => {
+  $('lobbyContent').innerHTML = `
+    <p>Escribe el código de la partida:</p>
+    <input id="codeInput" maxlength="5" placeholder="ABCDE" autocomplete="off" />
+    <button id="btnConnect">🔗 Conectar</button>
+    <button class="secondary" onclick="showScreen('menu')">← Volver</button>
+  `;
+  $('lobbyTitle').textContent = '🔗 UNIRSE';
+  showScreen('lobby');
+  setTimeout(() => $('codeInput').focus(), 100);
+  $('btnConnect').onclick = connectToPeer;
+  $('codeInput').onkeypress = (e) => { if (e.key === 'Enter') connectToPeer(); };
+};
+
+async function connectToPeer() {
+  const code = $('codeInput').value.trim().toUpperCase();
+  if (code.length !== 5) { alert('Código de 5 caracteres'); return; }
+  $('btnConnect').disabled = true;
+  $('lobbyTitle').textContent = '🔗 Conectando...';
+  $('lobbyContent').innerHTML = '<p>Buscando partida...</p>';
+  status('Conectando...', 99999);
+  try {
+    peer = await initPeer();
+    const targetId = 'zs-' + code + '-' + 'aaaa'; // cualquier suffix, el server lo busca por prefijo
+    // PeerJS no busca por prefijo, así que pedimos al host su ID completo vía signaling
+    // Truco: usamos el "room" como ID exacto conocido. Actualizamos protocolo:
+    // El host comparte el ID completo por el link, así que en su defecto el joiner prueba varios sufijos... o usamos un server de registro.
+    // MEJOR: usar el ID completo del host. Si solo tiene el código de 5 letras, vamos a usar peer.listAllPeers vía servidor de descubrimiento, pero PeerJS público no lo soporta directo.
+    // Solución simple: pedir el link completo, o el host debe comunicar su ID completo.
+    // => Cambiamos: el host muestra ID completo (corto) y el joiner lo pega.
+
+    $('lobbyTitle').textContent = '🔗 UNIRSE';
+    $('lobbyContent').innerHTML = `
+      <p>Pega el ID completo de tu compañero:</p>
+      <p class="small" style="font-size:11px">(Lo encuentras debajo del código de 5 letras en su pantalla, empieza con "zs-")</p>
+      <input id="fullId" placeholder="zs-XXXXX-xxxx" autocomplete="off" />
+      <button id="btnConnectFull">🔗 Conectar</button>
+      <button class="secondary" onclick="$('btnJoin').click()">← Volver</button>
+    `;
+    status('');
+    $('btnConnectFull').onclick = () => {
+      const full = $('fullId').value.trim();
+      if (!full.startsWith('zs-')) { alert('ID inválido'); return; }
+      conn = peer.connect(full, { reliable: true });
+      isHost = false;
+      setupConn();
+    };
+  } catch (e) {
+    alert('Error: ' + e.message);
+    showScreen('menu');
+  }
 }
 
-function createRoom() {
-  initAudio();
-  myName = document.getElementById('playerName').value.trim();
-  if (!myName) { alert('Escribe tu nombre'); return; }
-  isHost = true;
-  roomId = 'sala-' + Math.random().toString(36).substr(2, 6);
-
-  document.getElementById('status').textContent = 'Creando servidor...';
-
-  peer = new Peer(roomId, peerConfig);
-
-  peer.on('open', (id) => {
-    myId = id;
-    document.getElementById('menu').style.display = 'none';
-    document.getElementById('lobby').style.display = 'flex';
-    document.getElementById('roomId').textContent = 'ID: ' + roomId;
-    document.getElementById('hostControls').style.display = 'block';
-    document.getElementById('status').textContent = 'Servidor listo. Esperando jugadores...';
-
-    players[myId] = {
-      name: myName, x: 200, y: 400, targetX: 200, targetY: 400,
-      lives: 2, weapon: null, alive: true, color: PLAYER_COLORS[0],
-      sitting: false, frame: 0, facing: 1
-    };
-    updatePlayersList();
+function setupConn() {
+  conn.on('open', () => {
+    status('¡Conectado!', 2000);
+    showClassSelect();
   });
+  conn.on('data', (data) => {
+    if (data.type === 'class') {
+      peerClass = data.class;
+      updateClassHint();
+      if (myClass) startGame();
+    } else if (data.type === 'restart') {
+      myClass = null; peerClass = null; bothReady = false;
+      showClassSelect();
+    } else if (data.type === 'input') {
+      if (game) game.applyPeerInput(data);
+    } else if (data.type === 'state') {
+      if (game) game.applyPeerState(data);
+    } else if (data.type === 'damage') {
+      if (game) game.applyPeerDamage(data);
+    } else if (data.type === 'spawn') {
+      if (game) game.applyPeerSpawn(data);
+    }
+  });
+  conn.on('close', () => {
+    if (game) { game.end(true); }
+    else {
+      alert('El otro jugador se desconectó.');
+      showScreen('menu');
+      $('btnCreate').disabled = false; $('btnJoin').disabled = false;
+    }
+  });
+}
 
-  peer.on('connection', (c) => {
-    const setupConn = () => {
-      if (Object.keys(players).length >= 4) {
-        c.send({type:'full'}); setTimeout(() => c.close(), 100); return;
-      }
-      if (!connections.includes(c)) connections.push(c);
-      c.on('data', (data) => handleMsg(data, c));
+// ---------- CLASS SELECT ----------
+function showClassSelect() {
+  const grid = $('classGrid');
+  grid.innerHTML = '';
+  CLASSES.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'class-card';
+    card.innerHTML = `
+      <div class="emoji">${c.emoji}</div>
+      <div class="name">${c.name}</div>
+      <div class="desc">${c.desc}</div>
+      <div class="ability">⚡ ${c.ability} (${c.cd}s CD)</div>
+    `;
+    card.onclick = () => {
+      document.querySelectorAll('.class-card').forEach(x => x.classList.remove('selected'));
+      card.classList.add('selected');
+      myClass = c;
+      $('btnReady').disabled = false;
     };
+    grid.appendChild(card);
+  });
+  $('btnReady').disabled = true;
+  $('classHint').textContent = 'Esperando al otro jugador...';
+  showScreen('classSelect');
+}
 
-    if (c.open) setupConn(); else c.on('open', setupConn);
+$('btnReady').onclick = () => {
+  if (!myClass) return;
+  $('btnReady').disabled = true;
+  conn.send({ type: 'class', class: myClass });
+  $('classHint').textContent = 'Esperando al otro jugador...';
+  if (peerClass) startGame();
+  else updateClassHint();
+};
 
-    c.on('close', () => {
-      const playerId = c.peer;
-      if (players[playerId]) {
-        delete players[playerId];
-        broadcast({type:'sync', players: players});
-        updatePlayersList();
-      }
-      connections = connections.filter(conn => conn !== c);
+function updateClassHint() {
+  if (myClass && peerClass) startGame();
+  else if (myClass) $('classHint').textContent = 'Esperando al otro jugador (' + (peerClass ? 'clase elegida' : '') + ')...';
+}
+
+function startGame() {
+  if (bothReady) return;
+  bothReady = true;
+  showScreen('gameScreen');
+  if (isMobile) $('mobileControls').style.display = 'block';
+  game = new Game(myClass, peerClass, isHost);
+  game.start();
+}
+
+// ============================================================
+//  GAME
+// ============================================================
+class Game {
+  constructor(myClass, peerClass, isHost) {
+    this.canvas = $('canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.myClass = myClass;
+    this.peerClass = peerClass;
+    this.isHost = isHost;
+    this.keys = {};
+    this.joystick = { x: 0, y: 0, active: false };
+    this.lastTime = 0;
+    this.myId = 'me';
+    this.peerId = 'peer';
+    this.entities = new Map();
+    this.inputSeq = 0;
+    this.lastSentInput = 0;
+    this.gameOver = false;
+    this.spawnTimer = 0;
+    this.wave = 1;
+    this.score = 0;
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+  }
+
+  resize() {
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = window.innerWidth * dpr;
+    this.canvas.height = window.innerHeight * dpr;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.W = window.innerWidth;
+    this.H = window.innerHeight;
+  }
+
+  start() {
+    // Init players
+    this.entities.set(this.myId, this.makePlayer(this.myId, this.myClass, this.W * 0.3, this.H * 0.5, true));
+    this.entities.set(this.peerId, this.makePlayer(this.peerId, this.peerClass, this.W * 0.7, this.H * 0.5, false));
+    this.abilityCd = 0;
+    this.attackCd = 0;
+    this.setupInput();
+    if (this.isHost) {
+      // Host runs the game state; peer renders based on sync
+      this.startHostLoop();
+    } else {
+      this.startClientLoop();
+    }
+    this.requestAnimationFrame();
+  }
+
+  makePlayer(id, cls, x, y, isMe) {
+    return {
+      id, classDef: cls, x, y, vx: 0, vy: 0,
+      hp: 100, maxHp: 100,
+      angle: 0, attacking: false, attackTimer: 0,
+      abilityCd: 0, abilityReady: true,
+      isMe,
+      allies: [], // para necromancer
+      buffs: {}, // p.ej. ira
+    };
+  }
+
+  setupInput() {
+    // Teclado (PC)
+    window.addEventListener('keydown', (e) => {
+      this.keys[e.key.toLowerCase()] = true;
+      if (e.key === ' ' || e.key === 'f') this.tryAttack();
+      if (e.key === 'e' || e.key === 'q') this.tryAbility();
     });
-  });
+    window.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
 
-  peer.on('error', (err) => { alert('Error al crear sala: ' + err.type); });
-}
+    // Joystick móvil
+    const joy = $('joystick'), knob = $('joystickKnob');
+    if (joy) {
+      const handleStart = (e) => {
+        e.preventDefault();
+        this.joystick.active = true;
+        const t = e.touches ? e.touches[0] : e;
+        this.joystick.startX = t.clientX; this.joystick.startY = t.clientY;
+      };
+      const handleMove = (e) => {
+        if (!this.joystick.active) return;
+        e.preventDefault();
+        const t = e.touches ? e.touches[0] : e;
+        let dx = t.clientX - this.joystick.startX;
+        let dy = t.clientY - this.joystick.startY;
+        const dist = Math.hypot(dx, dy);
+        const max = 40;
+        if (dist > max) { dx = dx / dist * max; dy = dy / dist * max; }
+        knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        this.joystick.x = dx / max; this.joystick.y = dy / max;
+      };
+      const handleEnd = (e) => {
+        e.preventDefault();
+        this.joystick.active = false;
+        this.joystick.x = 0; this.joystick.y = 0;
+        knob.style.transform = 'translate(-50%, -50%)';
+      };
+      joy.addEventListener('touchstart', handleStart);
+      joy.addEventListener('touchmove', handleMove);
+      joy.addEventListener('touchend', handleEnd);
+      joy.addEventListener('mousedown', handleStart);
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleEnd);
+    }
 
-function joinRoom() {
-  initAudio();
-  myName = document.getElementById('playerName').value.trim();
-  roomId = document.getElementById('joinId').value.trim();
-  if (!myName || !roomId) { alert('Completa los campos'); return; }
+    $('btnAttack')?.addEventListener('click', () => this.tryAttack());
+    $('btnAbility')?.addEventListener('click', () => this.tryAbility());
+  }
 
-  document.getElementById('status').textContent = 'Buscando sala...';
-  peer = new Peer(peerConfig);
+  getInputDir() {
+    let dx = 0, dy = 0;
+    if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
+    if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
+    if (this.keys['a'] || this.keyUp['arrowleft'] || this.keys['arrowleft']) dx -= 1;
+    if (this.keys['d'] || this.keys['arrowright']) dx += 1;
+    if (this.joystick.x || this.joystick.y) { dx = this.joystick.x; dy = this.joystick.y; }
+    const m = Math.hypot(dx, dy);
+    if (m > 0) { dx /= m; dy /= m; }
+    return { dx, dy };
+  }
 
-  peer.on('open', (id) => {
-    myId = id;
-    conn = peer.connect(roomId, { metadata: { name: myName } });
+  tryAttack() {
+    if (this.attackCd > 0 || this.gameOver) return;
+    this.attackCd = 0.4;
+    this.entities.get(this.myId).attacking = true;
+    this.entities.get(this.myId).attackTimer = 0.2;
+    if (!this.isHost) conn.send({ type: 'input', kind: 'attack' });
+    if (this.isHost) this.doAttack(this.myId);
+  }
 
-    const setupConn = () => {
-      document.getElementById('menu').style.display = 'none';
-      document.getElementById('lobby').style.display = 'flex';
-      document.getElementById('roomId').textContent = 'Conectado a: ' + roomId;
-      document.getElementById('status').textContent = 'Conectado. Esperando inicio...';
-      conn.send({type:'join', name: myName, id: myId});
-      conn.on('data', (data) => handleMsg(data));
-    };
+  tryAbility() {
+    const me = this.entities.get(this.myId);
+    if (me.abilityCd > 0 || this.gameOver) return;
+    me.abilityCd = me.classDef.cd;
+    me.abilityReady = false;
+    if (!this.isHost) {
+      conn.send({ type: 'input', kind: 'ability' });
+      return;
+    }
+    this.doAbility(this.myId);
+  }
 
-    if (conn.open) setupConn(); else conn.on('open', setupConn);
-    conn.on('error', (err) => { alert('Error de conexión: ' + err); location.reload(); });
-    conn.on('close', () => { alert('Conexión perdida con el host'); location.reload(); });
-  });
+  // ============== HOST LOGIC ==============
+  startHostLoop() {
+    this.hostInterval = setInterval(() => this.hostTick(), 1000 / 30);
+  }
 
-  peer.on('error', (err) => { alert('Error al conectar: ' + err.type); });
-}
+  startClientLoop() {
+    // Client sends input and renders what host broadcasts
+    setInterval(() => {
+      if (this.gameOver) return;
+      const { dx, dy } = this.getInputDir();
+      if (dx || dy) conn.send({ type: 'input', kind: 'move', dx, dy });
+    }, 50);
+  }
 
-function broadcast(data, excludeConn = null) {
-  connections.forEach(c => { if (c.open && c !== excludeConn) c.send(data); });
-}
+  hostTick() {
+    if (this.gameOver) return;
+    const dt = 1/30;
+    const me = this.entities.get(this.myId);
+    const peer = this.entities.get(this.peerId);
 
-// ============ MENSAJERÍA ============
-function handleMsg(data, senderConn = null) {
-  if (data.type === 'full') { alert('Sala llena'); location.reload(); return; }
+    // Movement from my input
+    const { dx, dy } = this.getInputDir();
+    me.x += dx * 180 * dt;
+    me.y += dy * 180 * dt;
+    me.x = Math.max(20, Math.min(this.W - 20, me.x));
+    me.y = Math.max(60, Math.min(this.H - 20, me.y));
+    if (dx || dy) me.angle = Math.atan2(dy, dx);
 
-  if (data.type === 'join') {
-    if (!isHost) return;
-    if (Object.keys(players).length >= 4) { if (senderConn) senderConn.send({type:'full'}); return; }
-    const colorIdx = Object.keys(players).length;
-    players[data.id] = {
-      name: data.name, x: 200 + colorIdx*50, y: 400, targetX: 200+colorIdx*50, targetY: 400,
-      lives: 2, weapon: null, alive: true, color: PLAYER_COLORS[colorIdx % PLAYER_COLORS.length],
-      sitting: false, frame: 0, facing: 1
-    };
-    updatePlayersList();
-    if (senderConn) {
-      senderConn.send({
-        type:'sync', players: players, chairs: chairs, boxes: boxes,
-        duolingoTimer: duolingoTimer, gameStarted: gameStarted, duolingo: duolingo,
-        voting: voting, fightMode: fightMode,
-        secuaces: secuaces, secuazSpawnTimer: secuazSpawnTimer
+    // Apply peer input (received via 'input' message)
+    if (this.peerInput) {
+      peer.x += this.peerInput.dx * 180 * dt;
+      peer.y += this.peerInput.dy * 180 * dt;
+      peer.x = Math.max(20, Math.min(this.W - 20, peer.x));
+      peer.y = Math.max(60, Math.min(this.H - 20, peer.y));
+      if (this.peerInput.dx || this.peerInput.dy) peer.angle = Math.atan2(this.peerInput.dy, this.peerInput.dx);
+    }
+
+    // Cooldowns
+    this.attackCd = Math.max(0, this.attackCd - dt);
+    [me, peer].forEach(p => {
+      p.attackTimer = Math.max(0, p.attackTimer - dt);
+      if (p.attackTimer <= 0) p.attacking = false;
+      p.abilityCd = Math.max(0, p.abilityCd - dt);
+      p.abilityReady = p.abilityCd <= 0;
+      // Buffs
+      if (p.buffs.ira && p.buffs.ira > 0) p.buffs.ira -= dt;
+    });
+
+    // Spawn zombies
+    this.spawnTimer -= dt;
+    const spawnInterval = Math.max(0.5, 3 - this.wave * 0.15);
+    if (this.spawnTimer <= 0) {
+      this.spawnTimer = spawnInterval;
+      this.spawnZombie();
+    }
+
+    // AI zombies
+    this.entities.forEach(e => {
+      if (e.type === 'zombie') this.updateZombie(e, dt);
+      if (e.type === 'ally') this.updateAlly(e, dt);
+      if (e.type === 'projectile') this.updateProjectile(e, dt);
+      if (e.life !== undefined) { e.life -= dt; if (e.life <= 0) this.entities.delete(e.id); }
+    });
+
+    // Check player vs zombie collisions
+    [me, peer].forEach(p => {
+      if (p.hp <= 0) return;
+      this.entities.forEach(e => {
+        if (e.type !== 'zombie') return;
+        if (e.hp <= 0) return;
+        const d = Math.hypot(e.x - p.x, e.y - p.y);
+        if (d < 28) {
+          p.hp -= 10 * dt;
+          if (p.hp <= 0) { p.hp = 0; this.checkGameOver(); }
+        }
       });
+    });
+
+    // Update HUD for host
+    this.updateHud(me);
+
+    // Send state to peer
+    this.sendState();
+  }
+
+  spawnZombie() {
+    const id = 'z' + Date.now() + Math.random();
+    const side = Math.floor(Math.random() * 4);
+    let x, y;
+    if (side === 0) { x = -20; y = Math.random() * this.H; }
+    else if (side === 1) { x = this.W + 20; y = Math.random() * this.H; }
+    else if (side === 2) { x = Math.random() * this.W; y = -20; }
+    else { x = Math.random() * this.W; y = this.H + 20; }
+    const isBoss = Math.random() < 0.05 + this.wave * 0.01;
+    const z = {
+      id, type: 'zombie', x, y, vx: 0, vy: 0,
+      hp: isBoss ? 200 : 30 + this.wave * 5,
+      maxHp: isBoss ? 200 : 30 + this.wave * 5,
+      speed: isBoss ? 40 : 50 + Math.random() * 30,
+      damage: isBoss ? 20 : 10,
+      size: isBoss ? 30 : 16,
+      boss: isBoss,
+      frozen: 0,
+      burning: 0,
+    };
+    this.entities.set(id, z);
+    conn.send({ type: 'spawn', entity: z });
+  }
+
+  updateZombie(z, dt) {
+    if (z.frozen > 0) { z.frozen -= dt; return; }
+    // Find nearest alive player
+    const me = this.entities.get(this.myId);
+    const peer = this.entities.get(this.peerId);
+    const targets = [me, peer].filter(p => p.hp > 0);
+    if (!targets.length) return;
+    let nearest = targets[0], nd = Math.hypot(z.x - nearest.x, z.y - nearest.y);
+    targets.forEach(t => { const d = Math.hypot(z.x - t.x, z.y - t.y); if (d < nd) { nearest = t; nd = d; } });
+    const dx = nearest.x - z.x, dy = nearest.y - z.y;
+    const m = Math.hypot(dx, dy) || 1;
+    z.x += (dx / m) * z.speed * dt;
+    z.y += (dy / m) * z.speed * dt;
+    if (z.burning > 0) {
+      z.hp -= 15 * dt;
+      z.burning -= dt;
     }
-    broadcast({type:'sync', players: players});
-  }
-
-  if (data.type === 'sync') {
-    players = data.players;
-    if (data.chairs) chairs = data.chairs;
-    if (data.boxes) boxes = data.boxes;
-    if (data.duolingoTimer !== undefined) duolingoTimer = data.duolingoTimer;
-    if (data.duolingo !== undefined) duolingo = data.duolingo;
-    if (data.voting !== undefined) voting = data.voting;
-    if (data.fightMode !== undefined) fightMode = data.fightMode;
-    // === NUEVO: Sincronizar secuaces ===
-    if (data.secuaces !== undefined) secuaces = data.secuaces;
-    if (data.secuazSpawnTimer !== undefined) secuazSpawnTimer = data.secuazSpawnTimer;
-    if (data.gameStarted && !gameStarted) {
-      gameStarted = true;
-      document.getElementById('lobby').style.display = 'none';
-      document.getElementById('game').style.display = 'block';
-      resizeCanvas(); gameLoop(); startTimer();
+    if (z.hp <= 0) {
+      this.entities.delete(z.id);
+      this.score += z.boss ? 50 : 5;
+      if (this.wave < 99) { /* wave increments by score */ }
     }
-    updatePlayersList();
   }
 
-  if (data.type === 'move') {
-    if (players[data.id]) { players[data.id].targetX = data.x; players[data.id].targetY = data.y; }
-    if (isHost) broadcast(data, senderConn);
-  }
-
-  if (data.type === 'sit') {
-    if (players[data.id]) {
-      players[data.id].sitting = data.sitting;
-      if (data.sitting && data.chairIdx !== undefined) {
-        const chair = chairs[data.chairIdx];
-        if (chair) {
-          players[data.id].x = chair.x; players[data.id].y = chair.y;
-          players[data.id].targetX = chair.x; players[data.id].targetY = chair.y;
+  updateAlly(a, dt) {
+    // Ally attacks nearest zombie
+    let target = null, nd = 400;
+    this.entities.forEach(e => {
+      if (e.type === 'zombie' && e.hp > 0) {
+        const d = Math.hypot(e.x - a.x, e.y - a.y);
+        if (d < nd) { target = e; nd = d; }
+      }
+    });
+    if (target) {
+      const dx = target.x - a.x, dy = target.y - a.y;
+      const m = Math.hypot(dx, dy) || 1;
+      a.x += (dx / m) * 70 * dt;
+      a.y += (dy / m) * 70 * dt;
+      if (nd < 30) {
+        target.hp -= 20 * dt;
+        if (target.hp <= 0) {
+          this.entities.delete(target.id);
+          this.score += 5;
         }
       }
-    }
-    if (isHost) broadcast(data, senderConn);
-  }
-
-  if (data.type === 'start') {
-    gameStarted = true; players = data.players; boxes = data.boxes; chairs = data.chairs;
-    if (data.secuaces) secuaces = data.secuaces;
-    if (data.secuazSpawnTimer !== undefined) secuazSpawnTimer = data.secuazSpawnTimer;
-    document.getElementById('lobby').style.display = 'none';
-    document.getElementById('game').style.display = 'block';
-    resizeCanvas(); gameLoop(); startTimer();
-  }
-
-  if (data.type === 'duolingo_spawn') {
-    duolingo = data.duolingo; playSound('duo_spawn'); showMsg('🦉 ¡DUOLINGO HA LLEGADO!'); screenShake = 20;
-  }
-
-  if (data.type === 'duolingo_move') { duolingo = data.duolingo; }
-
-  if (data.type === 'question') {
-    if (players[myId] && players[myId].sitting) { showMsg('🪑 Estás sentado, Duolingo te ignora...'); return; }
-    currentQuestion = data.question;
-    currentSecuaz = null; // Asegurar que no estamos en modo secuaz
-    document.getElementById('dialogTitle').textContent = '🦉 DUOLINGO PREGUNTA:';
-    document.getElementById('dialogTitle').classList.remove('secuaz');
-    document.getElementById('question').textContent = currentQuestion.q;
-    document.getElementById('dialog').style.display = 'block';
-    document.getElementById('answer').value = '';
-  }
-
-  if (data.type === 'submit_answer') { if (isHost) checkAnswer(data.id, data.answer); }
-
-  if (data.type === 'answer_result') {
-    document.getElementById('dialog').style.display = 'none';
-    if (data.correct) {
-      playSound('correct'); showMsg(`✅ ¡${players[data.id]?.name || 'Alguien'} respondió bien! Duolingo se retira...`);
     } else {
-      playSound('wrong');
-      if (data.id === myId) { showMsg('❌ ¡Incorrecto! Pierdes una vida'); screenShake = 15; }
-      else { showMsg(`❌ ¡${players[data.id]?.name} se equivocó!`); }
-      if (players[data.id]) {
-        players[data.id].lives = Math.max(0, players[data.id].lives - 1);
-        if (players[data.id].lives <= 0) {
-          players[data.id].alive = false;
-          if (data.id === myId) playSound('death');
+      // follow owner
+      const owner = this.entities.get(a.owner);
+      if (owner) {
+        const dx = owner.x - a.x, dy = owner.y - a.y;
+        const m = Math.hypot(dx, dy) || 1;
+        if (m > 60) { a.x += (dx / m) * 90 * dt; a.y += (dy / m) * 90 * dt; }
+      }
+    }
+  }
+
+  updateProjectile(p, dt) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    // Hit zombies
+    this.entities.forEach(e => {
+      if (e.type === 'zombie' && e.hp > 0) {
+        const d = Math.hypot(e.x - p.x, e.y - p.y);
+        if (d < (e.size + 6)) {
+          e.hp -= p.damage || 30;
+          if (p.kind === 'ice') e.frozen = 2;
+          if (p.kind === 'fire') e.burning = 3;
+          if (p.kind === 'electric') {
+            // chain
+            this.entities.forEach(e2 => {
+              if (e2.type === 'zombie' && e2 !== e && e2.hp > 0) {
+                const d2 = Math.hypot(e2.x - e.x, e2.y - e.y);
+                if (d2 < 100) e2.hp -= 15;
+              }
+            });
+          }
+          if (e.hp <= 0) { this.entities.delete(e.id); this.score += e.boss ? 50 : 5; }
+          if (p.pierce) return;
+          p.life = 0;
         }
       }
-    }
-    currentQuestion = null;
+    });
   }
 
-  if (data.type === 'open_box_req') {
-    if (isHost) {
-      const box = boxes.find(b => b.id === data.boxId);
-      if (box && !box.opened) openBox(box, data.playerId);
-    }
-  }
-
-  if (data.type === 'open_box') {
-    const box = boxes.find(b => b.id === data.boxId);
-    if (box && !box.opened) {
-      box.opened = true; box.openTime = Date.now(); playSound('box');
-      if (data.weapon) {
-        players[data.playerId].weapon = data.weapon;
-        if (data.playerId === myId) { playSound('weapon'); showMsg('🎁 ¡Encontraste un ' + data.weapon + '!'); }
-      } else {
-        if (data.playerId === myId) showMsg('📦 Caja vacía...');
+  doAttack(attackerId) {
+    const a = this.entities.get(attackerId);
+    if (!a) return;
+    const range = a.classDef.id === 'sniper' ? 400 : 60;
+    const damage = a.classDef.id === 'sniper' ? 50 : (a.buffs.ira > 0 ? 30 : 15);
+    this.entities.forEach(e => {
+      if (e.type === 'zombie' && e.hp > 0) {
+        const d = Math.hypot(e.x - a.x, e.y - a.y);
+        if (d < range) {
+          const a2e = Math.atan2(e.y - a.y, e.x - a.x);
+          if (Math.abs(this.angleDiff(a.angle, a2e)) < 0.8) {
+            e.hp -= damage;
+            if (e.hp <= 0) this.onZombieKilled(e, a);
+          }
+        }
       }
-      for (let i = 0; i < 15; i++) {
-        particles.push({x: box.x+25, y: box.y+25, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4 - 2, life: 40, color: data.weapon ? '#ffcc00' : '#8b5a2b'});
+    });
+  }
+
+  angleDiff(a, b) {
+    let d = a - b; while (d > Math.PI) d -= Math.PI*2; while (d < -Math.PI) d += Math.PI*2; return d;
+  }
+
+  onZombieKilled(z, killer) {
+    this.entities.delete(z.id);
+    this.score += z.boss ? 50 : 5;
+    if (this.score > this.wave * 100) {
+      this.wave++;
+      status('¡OLEADA ' + this.wave + '!', 2000);
+    }
+    // Necromancer: 50% chance to revive as ally
+    if (killer.classDef.id === 'necromancer' && Math.random() < 0.5 && !z.boss) {
+      const ally = {
+        id: 'a' + Date.now() + Math.random(),
+        type: 'ally', x: z.x, y: z.y,
+        hp: 30, maxHp: 30, owner: killer.id,
+        size: 14,
+      };
+      this.entities.set(ally.id, ally);
+    }
+  }
+
+  doAbility(userId) {
+    const u = this.entities.get(userId);
+    if (!u) return;
+    const id = u.classDef.id;
+    if (id === 'soldier') {
+      // Granada AoE
+      const cx = u.x + Math.cos(u.angle) * 100;
+      const cy = u.y + Math.sin(u.angle) * 100;
+      this.entities.forEach(e => {
+        if (e.type === 'zombie' && e.hp > 0) {
+          const d = Math.hypot(e.x - cx, e.y - cy);
+          if (d < 100) { e.hp -= 60; if (e.hp <= 0) this.onZombieKilled(e, u); }
+        }
+      });
+      this.spawnFx(cx, cy, 100, 'explosion', 0.4);
+    } else if (id === 'necromancer') {
+      // Drena vida: roba HP a zombie cercano
+      let target = null, nd = 200;
+      this.entities.forEach(e => { if (e.type === 'zombie' && e.hp > 0) { const d = Math.hypot(e.x - u.x, e.y - u.y); if (d < nd) { target = e; nd = d; } } });
+      if (target) {
+        const dmg = 40;
+        target.hp -= dmg;
+        u.hp = Math.min(u.maxHp, u.hp + 20);
+        if (target.hp <= 0) this.onZombieKilled(target, u);
+        this.spawnFx(target.x, target.y, 40, 'drain', 0.3);
       }
-    }
-  }
-
-  if (data.type === 'boxes_respawn') { boxes = data.boxes; showMsg('📦 ¡Las cajas han reaparecido!'); playSound('box'); }
-
-  if (data.type === 'vote_start') {
-    voting = true; votes = {};
-    document.getElementById('votePanel').style.display = 'block'; updateVoteCount();
-  }
-
-  if (data.type === 'vote') {
-    votes[data.id] = data.vote; updateVoteCount();
-    if (isHost) {
-      broadcast(data, senderConn);
-      if (Object.keys(votes).length === Object.keys(players).filter(id => players[id].alive).length) { resolveVote(); }
-    }
-  }
-
-  if (data.type === 'vote_result') {
-    document.getElementById('votePanel').style.display = 'none'; voting = false;
-    if (data.fight) { fightMode = true; showMsg('⚔️ ¡MODO COMBATE!'); }
-    else { showMsg('🏃 Duolingo hace su pregunta...'); }
-  }
-
-  if (data.type === 'fight_attack') {
-    if (duolingo) {
-      duolingo.hp -= data.damage; duolingo.hitFlash = 10; playSound('hit'); screenShake = 8;
-      for (let i = 0; i < 10; i++) particles.push({x: duolingo.x, y: duolingo.y, vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6, life: 30, color: '#58cc02'});
-      if (duolingo.hp <= 0) {
-        playSound('correct'); showMsg('🎉 ¡DERROTASTE A DUOLINGO!');
-        duolingo = null; fightMode = false; resetTimer(); screenShake = 25;
-      }
-    }
-    if (isHost) broadcast(data, senderConn);
-  }
-
-  if (data.type === 'player_died') {
-    if (players[data.id]) {
-      players[data.id].lives = 0; players[data.id].alive = false;
-      if (data.id === myId) playSound('death');
-      showMsg('💀 ' + data.name + ' ha muerto');
-    }
-  }
-
-  // ============ NUEVO: Mensajes de Secuaces ============
-  if (data.type === 'secuaz_spawn') {
-    secuaces = data.secuaces;
-    playSound('secuaz_spawn');
-    showMsg('👹 ¡5 SECUACES HAN APARECIDO! Te preguntarán en inglés');
-    screenShake = 12;
-  }
-
-  if (data.type === 'secuaz_request') {
-    if (isHost) {
-      const s = secuaces.find(x => x.id === data.secuazId);
-      if (s && !s.answeredBy) {
-        // Marcar como "siendo respondido" para evitar duplicados
-        s.answeredBy = data.playerId;
-        // Enviar la pregunta SOLO al jugador que la pidió
-        const targetConn = connections.find(c => c.peer === data.playerId);
-        if (targetConn) targetConn.send({type: 'secuaz_question', secuaz: s});
-      }
-    }
-  }
-
-  if (data.type === 'secuaz_question') {
-    currentSecuaz = data.secuaz;
-    currentQuestion = null; // No es pregunta de Duolingo
-    document.getElementById('dialogTitle').textContent = '👹 SECUAZ PREGUNTA (English):';
-    document.getElementById('dialogTitle').classList.add('secuaz');
-    document.getElementById('question').textContent = data.secuaz.question;
-    document.getElementById('dialog').style.display = 'block';
-    document.getElementById('answer').value = '';
-  }
-
-  if (data.type === 'secuaz_answer') {
-    if (isHost) {
-      const s = secuaces.find(x => x.id === data.secuazId);
-      if (s) checkSecuazAnswer(s, data.playerId, data.answer);
-    }
-  }
-
-  if (data.type === 'secuaz_result') {
-    // Quitar al secuaz de la lista (en todos los clientes)
-    const removed = secuaces.find(s => s.id === data.secuazId);
-    if (removed) {
-      secuaces = secuaces.filter(s => s.id !== data.secuazId);
-      // Partículas de "desaparición"
-      for (let i = 0; i < 25; i++) {
-        particles.push({
-          x: removed.x + 15, y: removed.y + 20,
-          vx: (Math.random()-0.5) * 7, vy: (Math.random()-0.5) * 7 - 2,
-          life: 55, color: data.correct ? '#a020f0' : '#ff3333'
-        });
-      }
-    }
-
-    if (data.correct) {
-      playSound('secuaz_correct');
-      showMsg('✅ ¡' + data.playerName + ' ahuyentó a un secuaz!');
-    } else {
-      playSound('secuaz_wrong');
-      showMsg('❌ ¡' + data.playerName + ' falló! TODOS pierden ½ corazón');
-      screenShake = 18;
-      // === CLAVE: Todos los jugadores vivos pierden 0.5 corazón ===
-      Object.keys(players).forEach(id => {
-        if (players[id].alive) {
-          players[id].lives = Math.max(0, players[id].lives - 0.5);
-          if (players[id].lives <= 0) {
-            players[id].alive = false;
-            if (id === myId) playSound('death');
+    } else if (id === 'ice') {
+      // Rayo de hielo: congela varios en cono
+      this.entities.forEach(e => {
+        if (e.type === 'zombie' && e.hp > 0) {
+          const d = Math.hypot(e.x - u.x, e.y - u.y);
+          if (d < 200) {
+            const a = Math.atan2(e.y - u.y, e.x - u.x);
+            if (Math.abs(this.angleDiff(u.angle, a)) < 0.7) {
+              e.frozen = 3;
+              e.hp -= 15;
+              if (e.hp <= 0) this.onZombieKilled(e, u);
+            }
+          }
+        }
+      });
+      this.spawnFx(u.x + Math.cos(u.angle)*100, u.y + Math.sin(u.angle)*100, 200, 'ice', 0.5);
+    } else if (id === 'fire') {
+      // Llamarada AoE
+      this.entities.forEach(e => {
+        if (e.type === 'zombie' && e.hp > 0) {
+          const d = Math.hypot(e.x - u.x, e.y - u.y);
+          if (d < 150) { e.hp -= 25; e.burning = 4; if (e.hp <= 0) this.onZombieKilled(e, u); }
+        }
+      });
+      this.spawnFx(u.x, u.y, 150, 'fire', 0.6);
+    } else if (id === 'medic') {
+      // Cura al aliado más cercano (incluye ella misma)
+      const targets = [this.entities.get(this.myId), this.entities.get(this.peerId)].filter(t => t && t.hp > 0);
+      let best = null, bd = 300;
+      targets.forEach(t => { const d = Math.hypot(t.x - u.x, t.y - u.y); if (d < bd) { best = t; bd = d; } });
+      if (best) { best.hp = Math.min(best.maxHp, best.hp + 40); this.spawnFx(best.x, best.y, 30, 'heal', 0.4); }
+    } else if (id === 'sniper') {
+      // Tiro certero: projectile rápido y fuerte
+      this.spawnProjectile(u, 800, 80, true, 'pierce');
+    } else if (id === 'engineer') {
+      // Torreta
+      const t = { id: 't' + Date.now(), type: 'turret', x: u.x, y: u.y, hp: 60, owner: userId, life: 15, cd: 0 };
+      this.entities.set(t.id, t);
+    } else if (id === 'shadow') {
+      // Furtividad: invisible 3s + daño x2
+      u.buffs.invisible = 3;
+      u.buffs.ira = 3;
+    } else if (id === 'brawler') {
+      u.buffs.ira = 3;
+      u.buffs.speed = 3;
+    } else if (id === 'electric') {
+      // Descarga: salta entre enemigos
+      const start = { x: u.x, y: u.y };
+      let prev = start;
+      this.entities.forEach(e => {
+        if (e.type === 'zombie' && e.hp > 0) {
+          const d = Math.hypot(e.x - prev.x, e.y - prev.y);
+          if (d < 250) {
+            e.hp -= 30;
+            if (e.hp <= 0) this.onZombieKilled(e, u);
+            prev = e;
+            this.spawnFx(e.x, e.y, 20, 'electric', 0.3);
           }
         }
       });
     }
+  }
 
-    // Si era el secuaz que el jugador local estaba respondiendo, limpiar
-    if (currentSecuaz && currentSecuaz.id === data.secuazId) {
-      currentSecuaz = null;
-      document.getElementById('dialog').style.display = 'none';
-      document.getElementById('dialogTitle').classList.remove('secuaz');
+  spawnProjectile(owner, speed, damage, pierce, kind) {
+    const p = {
+      id: 'p' + Date.now() + Math.random(),
+      type: 'projectile',
+      x: owner.x + Math.cos(owner.angle) * 20,
+      y: owner.y + Math.sin(owner.angle) * 20,
+      vx: Math.cos(owner.angle) * speed,
+      vy: Math.sin(owner.angle) * speed,
+      damage, pierce, kind,
+      life: 1.5, owner: owner.id,
+    };
+    this.entities.set(p.id, p);
+    conn.send({ type: 'spawn', entity: p });
+  }
+
+  spawnFx(x, y, radius, kind, life) {
+    const f = { id: 'f' + Date.now() + Math.random(), type: 'fx', x, y, radius, kind, life };
+    this.entities.set(f.id, f);
+    conn.send({ type: 'spawn', entity: f });
+  }
+
+  // Turret update inside main loop
+  updateTurret(t, dt) {
+    if (t.hp <= 0) { this.entities.delete(t.id); return; }
+    t.cd = Math.max(0, t.cd - dt);
+    if (t.cd > 0) return;
+    let target = null, nd = 250;
+    this.entities.forEach(e => { if (e.type === 'zombie' && e.hp > 0) { const d = Math.hypot(e.x - t.x, e.y - t.y); if (d < nd) { target = e; nd = d; } } });
+    if (target) {
+      t.cd = 0.5;
+      const p = {
+        id: 'p' + Date.now() + Math.random(), type: 'projectile',
+        x: t.x, y: t.y,
+        vx: (target.x - t.x) / nd * 500, vy: (target.y - t.y) / nd * 500,
+        damage: 10, pierce: false, kind: 'turret', life: 1, owner: t.id,
+      };
+      this.entities.set(p.id, p);
+      conn.send({ type: 'spawn', entity: p });
     }
   }
-}
 
-function updatePlayersList() {
-  const list = document.getElementById('playersList');
-  list.innerHTML = '<h3>Jugadores (' + Object.keys(players).length + '/4):</h3>';
-  Object.values(players).forEach(p => { list.innerHTML += '<div class="playerItem">● ' + p.name + '</div>'; });
-}
-
-function updateVoteCount() {
-  const total = Object.keys(players).filter(id => players[id].alive).length;
-  document.getElementById('voteCount').textContent = 'Votos: ' + Object.keys(votes).length + '/' + total;
-}
-
-// ============ INICIO DEL JUEGO ============
-function startGame() {
-  boxes = [];
-  for (let i = 0; i < 8; i++) {
-    boxes.push({ id: i, x: 100 + Math.random()*(WORLD_W-200), y: 150 + Math.random()*(WORLD_H-300), w: 50, h: 50, opened: false });
+  checkGameOver() {
+    const me = this.entities.get(this.myId);
+    const peer = this.entities.get(this.peerId);
+    if (me.hp <= 0 && peer.hp <= 0) this.end(false, 'Ambos cayeron...');
+    else if (me.hp <= 0) this.end(false, 'Tu compañero sigue en pie.');
+    else if (peer.hp <= 0) this.end(true, '¡Tu compañero cayó, pero tú sigues!');
   }
-  chairs = [
-    {x: 150, y: 200, idx: 0}, {x: WORLD_W - 150, y: 200, idx: 1},
-    {x: 150, y: WORLD_H - 200, idx: 2}, {x: WORLD_W - 150, y: WORLD_H - 200, idx: 3}
-  ];
-  // === NUEVO: Resetear estado de secuaces al iniciar ===
-  secuaces = [];
-  secuazSpawnTimer = 60;
-  currentSecuaz = null;
 
-  const startData = {type:'start', players: players, boxes: boxes, chairs: chairs, secuaces: secuaces, secuazSpawnTimer: secuazSpawnTimer};
-  broadcast(startData); handleMsg(startData);
-}
+  end(disco, msg) {
+    this.gameOver = true;
+    clearInterval(this.hostInterval);
+    $('gameOverText').textContent = disco ? 'Desconectado' : 'GAME OVER';
+    $('gameOverSub').textContent = msg || '';
+    showScreen('gameOver');
+  }
 
-// ============ CANVAS Y DIBUJO (QoL Táctil/Visual) ============
-function resizeCanvas() {
-  const scale = Math.min(window.innerWidth / WORLD_W, window.innerHeight / WORLD_H);
-  const dpr = window.devicePixelRatio || 1; // Para que se vea en HD en celulares
+  applyPeerInput(data) {
+    if (!this.isHost) return;
+    if (data.kind === 'move') this.peerInput = data;
+    if (data.kind === 'attack') this.doAttack(this.peerId);
+    if (data.kind === 'ability') this.doAbility(this.peerId);
+  }
 
-  canvas.width = WORLD_W * scale * dpr;
-  canvas.height = WORLD_H * scale * dpr;
-  canvas.style.width = (WORLD_W * scale) + 'px';
-  canvas.style.height = (WORLD_H * scale) + 'px';
+  applyPeerSpawn(data) {
+    this.entities.set(data.entity.id, data.entity);
+  }
 
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.scale(scale * dpr, scale * dpr);
-  ctx.imageSmoothingEnabled = false;
-}
-window.addEventListener('resize', () => { if (gameStarted) resizeCanvas(); });
+  applyPeerDamage(data) { /* placeholder for direct damage events */ }
 
-// USAMOS POINTERDOWN: Soporta ratón de PC y toques en pantalla celular inmediatamente
-canvas.addEventListener('pointerdown', e => {
-  initAudio();
-  if (!gameStarted || !players[myId] || !players[myId].alive) return;
+  sendState() {
+    const snap = {
+      type: 'state',
+      t: Date.now(),
+      entities: Array.from(this.entities.values()).map(e => ({
+        id: e.id, type: e.type, x: e.x|0, y: e.y|0, hp: e.hp, maxHp: e.maxHp,
+        angle: e.angle, size: e.size, boss: e.boss, frozen: e.frozen, burning: e.burning,
+        classDef: e.classDef, attacking: e.attacking,
+        abilityCd: e.abilityCd, abilityReady: e.abilityReady,
+        buffInvisible: e.buffs?.invisible, buffIra: e.buffs?.ira,
+        life: e.life, radius: e.radius, kind: e.kind,
+      })),
+      wave: this.wave, score: this.score,
+    };
+    if (conn && conn.open) conn.send(snap);
+  }
 
-  const rect = canvas.getBoundingClientRect();
-  const scale = rect.width / WORLD_W;
-  const x = (e.clientX - rect.left) / scale;
-  const y = (e.clientY - rect.top) / scale;
-
-  // === Sillas (solo si NO está sentado) ===
-  if (!players[myId].sitting) {
-    let satOnChair = false;
-    chairs.forEach((chair, idx) => {
-      const dist = Math.hypot(x - chair.x, y - chair.y);
-      if (dist < 60) { // ZONA DE TOQUE MÁS AMPLIA PARA CELULARES
-        const myDist = Math.hypot(players[myId].x - chair.x, players[myId].y - chair.y);
-        if (myDist < 120) {
-          players[myId].sitting = true; players[myId].x = chair.x; players[myId].y = chair.y;
-          players[myId].targetX = chair.x; players[myId].targetY = chair.y; satOnChair = true; playSound('sit');
-          const data = {type:'sit', id: myId, sitting: true, chairIdx: idx};
-          if (isHost) broadcast(data); else conn.send(data);
-        }
-      }
+  applyPeerState(data) {
+    if (this.isHost) return;
+    // Replace entities
+    this.entities.clear();
+    data.entities.forEach(e => {
+      const ent = { ...e, buffs: { invisible: e.buffInvisible, ira: e.buffIra } };
+      this.entities.set(e.id, ent);
     });
-    if (satOnChair) return;
+    this.wave = data.wave; this.score = data.score;
+    const me = this.entities.get(this.myId);
+    if (me) this.updateHud(me);
+  }
 
-    // === Cajas (solo si NO está sentado) ===
-    let openedBox = false;
-    boxes.forEach(box => {
-      if (!box.opened && x > box.x-10 && x < box.x + box.w + 10 && y > box.y-10 && y < box.y + box.h + 10) {
-        const dist = Math.hypot(players[myId].x - (box.x+25), players[myId].y - (box.y+25));
-        if (dist < 100) {
-          if (isHost) openBox(box, myId); else conn.send({type:'open_box_req', boxId: box.id, playerId: myId});
-          openedBox = true;
-        }
-      }
-    });
-    if (openedBox) return;
+  updateHud(me) {
+    $('hpBar').style.width = (me.hp / me.maxHp * 100) + '%';
+    $('hpText').textContent = Math.ceil(me.hp);
+    const cd = me.abilityCd;
+    const total = me.classDef.cd;
+    $('abilityBar').style.width = (100 - (cd / total * 100)) + '%';
+    $('abilityBar').className = 'bar-fill ' + (me.abilityReady ? 'ability-ready' : 'ability-fill');
+    $('abilityIcon').textContent = me.classDef.emoji;
+    $('waveText').textContent = this.wave;
+    $('scoreText').textContent = this.score;
+  }
 
-    // === Pelea contra Duolingo (solo si NO está sentado) ===
-    if (fightMode && duolingo && players[myId].weapon) {
-      const dist = Math.hypot(players[myId].x - duolingo.x, players[myId].y - duolingo.y);
-      if (dist < 100) {
-        playSound('shoot'); const data = {type:'fight_attack', damage: getWeaponDamage(players[myId].weapon)};
-        if (isHost) handleMsg(data); else conn.send(data);
+  requestAnimationFrame() {
+    const render = () => {
+      this.draw();
+      if (!this.gameOver) requestAnimationFrame(render);
+    };
+    requestAnimationFrame(render);
+  }
+
+  draw() {
+    const c = this.ctx;
+    c.fillStyle = '#1a1a1a';
+    c.fillRect(0, 0, this.W, this.H);
+
+    // Grid
+    c.strokeStyle = '#252525'; c.lineWidth = 1;
+    for (let x = 0; x < this.W; x += 40) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, this.H); c.stroke(); }
+    for (let y = 0; y < this.H; y += 40) { c.beginPath(); c.moveTo(0, y); c.lineTo(this.W, y); c.stroke(); }
+
+    this.entities.forEach(e => {
+      if (e.type === 'fx') {
+        const alpha = Math.min(1, e.life * 2);
+        if (e.kind === 'explosion') { c.fillStyle = `rgba(255,150,50,${alpha})`; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.2 - e.life*0.4), 0, Math.PI*2); c.fill(); }
+        else if (e.kind === 'drain') { c.fillStyle = `rgba(180,80,255,${alpha})`; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.2 - e.life*0.4), 0, Math.PI*2); c.fill(); }
+        else if (e.kind === 'ice') { c.fillStyle = `rgba(120,220,255,${alpha*0.6})`; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.2 - e.life*0.4), 0, Math.PI*2); c.fill(); }
+        else if (e.kind === 'fire') { c.fillStyle = `rgba(255,100,30,${alpha*0.7})`; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.2 - e.life*0.4), 0, Math.PI*2); c.fill(); }
+        else if (e.kind === 'heal') { c.fillStyle = `rgba(120,255,180,${alpha})`; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.2 - e.life*0.4), 0, Math.PI*2); c.fill(); }
+        else if (e.kind === 'electric') { c.fillStyle = `rgba(255,255,80,${alpha})`; c.beginPath(); c.arc(e.x, e.y, e.radius * (1.5 - e.life*0.4), 0, Math.PI*2); c.fill(); }
         return;
       }
-    }
-  }
-
-  // === NUEVO: Secuaces (funciona INCLUSO sentado, el secuaz te encuentra) ===
-  let clickedSecuaz = false;
-  for (let i = 0; i < secuaces.length; i++) {
-    const s = secuaces[i];
-    if (s.answeredBy) continue; // Ya está siendo respondido
-    // Hitbox generosa
-    if (x > s.x - 10 && x < s.x + 40 && y > s.y - 15 && y < s.y + 55) {
-      const dist = Math.hypot(players[myId].x - (s.x+15), players[myId].y - (s.y+20));
-      if (dist < 120) {
-        if (isHost) {
-          // El host se responde a sí mismo
-          s.answeredBy = myId;
-          currentSecuaz = s;
-          currentQuestion = null;
-          document.getElementById('dialogTitle').textContent = '👹 SECUAZ PREGUNTA (English):';
-          document.getElementById('dialogTitle').classList.add('secuaz');
-          document.getElementById('question').textContent = s.question;
-          document.getElementById('dialog').style.display = 'block';
-          document.getElementById('answer').value = '';
-        } else {
-          // Cliente pide la pregunta al host
-          conn.send({type: 'secuaz_request', secuazId: s.id, playerId: myId});
-        }
-        clickedSecuaz = true;
-        break;
+      if (e.type === 'projectile') {
+        c.fillStyle = e.kind === 'ice' ? '#88ddff' : e.kind === 'fire' ? '#ff7733' : e.kind === 'electric' ? '#ffdd44' : e.kind === 'turret' ? '#aaaa66' : '#ffdd55';
+        c.beginPath(); c.arc(e.x, e.y, 6, 0, Math.PI*2); c.fill();
+        return;
       }
-    }
+      if (e.type === 'turret') {
+        c.fillStyle = '#aa8844';
+        c.fillRect(e.x - 10, e.y - 10, 20, 20);
+        c.fillStyle = '#ffaa44';
+        c.beginPath(); c.arc(e.x, e.y, 6, 0, Math.PI*2); c.fill();
+        return;
+      }
+      if (e.type === 'zombie') {
+        // Body
+        c.fillStyle = e.frozen > 0 ? '#88ccee' : (e.boss ? '#553333' : '#3a5a3a');
+        c.beginPath(); c.arc(e.x, e.y, e.size, 0, Math.PI*2); c.fill();
+        if (e.boss) {
+          c.strokeStyle = '#aa2222'; c.lineWidth = 3;
+          c.beginPath(); c.arc(e.x, e.y, e.size + 4, 0, Math.PI*2); c.stroke();
+        }
+        if (e.burning > 0) {
+          c.fillStyle = 'rgba(255,100,30,0.5)';
+          c.beginPath(); c.arc(e.x, e.y, e.size + 3, 0, Math.PI*2); c.fill();
+        }
+        // HP bar
+        if (e.hp < e.maxHp) {
+          c.fillStyle = '#300'; c.fillRect(e.x - 16, e.y - e.size - 8, 32, 4);
+          c.fillStyle = '#c33'; c.fillRect(e.x - 16, e.y - e.size - 8, 32 * (e.hp / e.maxHp), 4);
+        }
+        // Eyes
+        c.fillStyle = '#ff3333';
+        c.fillRect(e.x - 4, e.y - 2, 3, 3);
+        c.fillRect(e.x + 1, e.y - 2, 3, 3);
+        return;
+      }
+      if (e.type === 'ally') {
+        c.fillStyle = '#aa66ff';
+        c.beginPath(); c.arc(e.x, e.y, e.size, 0, Math.PI*2); c.fill();
+        c.fillStyle = '#fff';
+        c.fillRect(e.x - 4, e.y - 2, 3, 3);
+        c.fillRect(e.x + 1, e.y - 2, 3, 3);
+        // Cross over zombie (X mark)
+        c.strokeStyle = '#552288'; c.lineWidth = 2;
+        c.beginPath(); c.moveTo(e.x - 6, e.y - 6); c.lineTo(e.x + 6, e.y + 6); c.moveTo(e.x + 6, e.y - 6); c.lineTo(e.x - 6, e.y + 6); c.stroke();
+        return;
+      }
+      // Player
+      const cls = e.classDef;
+      if (!cls) return;
+      const invisible = e.buffs?.invisible > 0 && !e.isMe;
+      c.globalAlpha = invisible ? 0.3 : 1;
+      c.fillStyle = cls.color;
+      c.beginPath(); c.arc(e.x, e.y, 18, 0, Math.PI*2); c.fill();
+      c.strokeStyle = e.isMe ? '#fff' : '#ffdd55';
+      c.lineWidth = e.isMe ? 3 : 2;
+      c.stroke();
+      // Weapon indicator (knife)
+      const wx = e.x + Math.cos(e.angle) * 22;
+      const wy = e.y + Math.sin(e.angle) * 22;
+      c.strokeStyle = '#ccc'; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(e.x, e.y); c.lineTo(wx, wy); c.stroke();
+      // Attack swing
+      if (e.attacking) {
+        c.fillStyle = 'rgba(255,255,255,0.4)';
+        c.beginPath();
+        c.arc(e.x, e.y, 50, e.angle - 0.6, e.angle + 0.6);
+        c.lineTo(e.x, e.y); c.fill();
+      }
+      // Class emoji
+      c.font = '18px sans-serif'; c.textAlign = 'center';
+      c.fillText(cls.emoji, e.x, e.y + 6);
+      // Name / HP
+      c.fillStyle = '#fff'; c.font = '10px sans-serif';
+      c.fillText(e.isMe ? 'TÚ' : 'COMP', e.x, e.y - 28);
+      c.fillStyle = '#300'; c.fillRect(e.x - 18, e.y - 24, 36, 4);
+      c.fillStyle = e.hp > 30 ? '#5c5' : '#c55';
+      c.fillRect(e.x - 18, e.y - 24, 36 * (e.hp / e.maxHp), 4);
+      c.globalAlpha = 1;
+    });
   }
-  if (clickedSecuaz) return;
+}
 
-  // === Movimiento (solo si NO está sentado) ===
-  if (!players[myId].sitting) {
-    players[myId].targetX = x; players[myId].targetY = y;
-    if (isHost) broadcast({type:'move', id: myId, x: x, y: y}); else conn.send({type:'move', id: myId, x: x, y: y});
+// ---------- GAME OVER HANDLERS ----------
+$('btnRestart').onclick = () => { if (conn && conn.open) conn.send({ type: 'restart' }); showClassSelect(); myClass = null; bothReady = false; };
+$('btnMenu').onclick = () => location.reload();
+
+// ---------- KEYBOARD SHORTCUT (PC) ----------
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (confirm('¿Salir al menú?')) location.reload();
   }
 });
-
-function toggleSit() {
-  if (!players[myId] || !players[myId].alive) return;
-  if (players[myId].sitting) {
-    players[myId].sitting = false;
-    const data = {type:'sit', id: myId, sitting: false};
-    if (isHost) broadcast(data); else conn.send(data); playSound('sit');
-  } else {
-    let closest = null, minDist = Infinity, closestIdx = -1;
-    chairs.forEach((c, i) => {
-      const d = Math.hypot(players[myId].x - c.x, players[myId].y - c.y);
-      if (d < minDist) { minDist = d; closest = c; closestIdx = i; }
-    });
-    if (closest && minDist < 120) {
-      players[myId].sitting = true; players[myId].x = closest.x; players[myId].y = closest.y;
-      players[myId].targetX = closest.x; players[myId].targetY = closest.y;
-      const data = {type:'sit', id: myId, sitting: true, chairIdx: closestIdx};
-      if (isHost) broadcast(data); else conn.send(data); playSound('sit');
-    } else { showMsg('🪑 Acércate a una silla primero'); }
-  }
-}
-
-function getWeaponDamage(w) { return {'Pistola': 20, 'Rifle': 40, 'Bate': 15, 'Cuchillo': 10, 'Escopeta': 50}[w] || 10; }
-
-function openBox(box, playerId) {
-  const weapon = Math.random() < 0.6 ? WEAPONS[Math.floor(Math.random()*WEAPONS.length)] : null;
-  const data = {type:'open_box', boxId: box.id, playerId: playerId, weapon: weapon};
-  broadcast(data); handleMsg(data);
-}
-
-// ============ NUEVO: Spawn de Secuaces ============
-function spawnSecuaces() {
-  const newSecuaces = [];
-  const blocked = [
-    ...chairs.map(c => ({x: c.x, y: c.y})),
-    ...boxes.map(b => ({x: b.x + 25, y: b.y + 25}))
-  ];
-
-  for (let i = 0; i < 5; i++) {
-    let x, y, attempts = 0;
-    do {
-      x = 90 + Math.random() * (WORLD_W - 180);
-      y = 140 + Math.random() * (WORLD_H - 270);
-      attempts++;
-    } while (attempts < 40 && (
-      blocked.some(p => Math.hypot(p.x - x, p.y - y) < 110) ||
-      newSecuaces.some(p => Math.hypot(p.x - x, p.y - y) < 160)
-    ));
-
-    // Elegir pregunta aleatoria
-    const q = SECUAZ_QUESTIONS[Math.floor(Math.random() * SECUAZ_QUESTIONS.length)];
-    newSecuaces.push({
-      id: 'sec_' + Date.now() + '_' + i,
-      x: x, y: y,
-      question: q.q, answer: q.a,
-      answeredBy: null,
-      seed: Math.random() * 1000 // Para que cada uno se mueva diferente
-    });
-  }
-
-  secuaces = newSecuaces;
-
-  if (isHost) {
-    broadcast({type: 'secuaz_spawn', secuaces: secuaces});
-  }
-  // El host también dispara el efecto local (en handleMsg se hace para clientes,
-  // pero acá el host no recibe su propio broadcast, así que lo hacemos directo)
-  playSound('secuaz_spawn');
-  showMsg('👹 ¡5 SECUACES HAN APARECIDO! Te preguntarán en inglés');
-  screenShake = 12;
-}
-
-function checkSecuazAnswer(s, playerId, ans) {
-  const correct = ans === s.answer.toLowerCase();
-  const data = {
-    type: 'secuaz_result',
-    secuazId: s.id,
-    playerId: playerId,
-    playerName: players[playerId]?.name || 'Alguien',
-    correct: correct
-  };
-  broadcast(data);
-  handleMsg(data);
-}
-
-// ============ DIBUJO ============
-function drawBackground() {
-  const grad = ctx.createRadialGradient(WORLD_W/2, WORLD_H/2, 100, WORLD_W/2, WORLD_H/2, 700);
-  grad.addColorStop(0, '#4a3020'); grad.addColorStop(1, '#1a0808');
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, WORLD_W, WORLD_H);
-
-  for (let y = 0; y < WORLD_H; y += 40) {
-    for (let x = 0; x < WORLD_W; x += 80) {
-      const offset = (y / 40) % 2 === 0 ? 0 : 40; const shade = 30 + ((x*7 + y*13) % 20);
-      ctx.fillStyle = `rgb(${shade+20}, ${shade}, ${shade-10})`; ctx.fillRect(x + offset, y, 78, 38);
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(x + offset, y, 78, 38);
-    }
-  }
-}
-
-function drawChair(chair) {
-  const x = chair.x, y = chair.y;
-
-  // QoL: Resaltar silla si estamos cerca y vivos
-  let canSit = false;
-  if (players[myId] && !players[myId].sitting && players[myId].alive) {
-     if (Math.hypot(players[myId].x - x, players[myId].y - y) < 120) canSit = true;
-  }
-  if (canSit) {
-     ctx.strokeStyle = `rgba(255, 204, 0, ${0.5 + Math.sin(Date.now()/150)*0.5})`; ctx.lineWidth = 2;
-     ctx.beginPath(); ctx.ellipse(x, y+10, 30, 15, 0, 0, Math.PI*2); ctx.stroke();
-  }
-
-  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(x, y+25, 20, 5, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#3a2410'; ctx.fillRect(x-15, y+5, 4, 20); ctx.fillRect(x+11, y+5, 4, 20); ctx.fillRect(x-15, y-15, 4, 20); ctx.fillRect(x+11, y-15, 4, 20);
-  ctx.fillStyle = '#6b3410'; ctx.fillRect(x-18, y, 36, 8);
-  ctx.fillStyle = '#8b4513'; ctx.fillRect(x-18, y-25, 36, 8); ctx.fillRect(x-18, y-25, 4, 25); ctx.fillRect(x+14, y-25, 4, 25);
-  ctx.fillStyle = '#4a2408'; ctx.fillRect(x-14, y-20, 28, 2);
-}
-
-function drawBox(box) {
-  const t = Date.now() - (box.openTime || 0);
-  const shake = box.opened && t < 300 ? Math.sin(t/20) * 2 : 0;
-  const x = box.x + shake, y = box.y;
-
-  // QoL: Resaltar caja si estamos cerca para tocarla
-  let canOpen = false;
-  if (players[myId] && !box.opened && players[myId].alive && !players[myId].sitting) {
-     if (Math.hypot(players[myId].x - (box.x+25), players[myId].y - (box.y+25)) < 100) canOpen = true;
-  }
-  if (canOpen) {
-     ctx.strokeStyle = `rgba(0, 255, 0, ${0.5 + Math.sin(Date.now()/150)*0.5})`; ctx.lineWidth = 3;
-     ctx.strokeRect(x-3, y-3, box.w+6, box.h+6);
-  }
-
-  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(box.x+25, box.y+box.h+3, 25, 6, 0, 0, Math.PI*2); ctx.fill();
-  if (box.opened) {
-    ctx.fillStyle = '#4a2a08'; ctx.fillRect(x, y+20, box.w, box.h-20);
-    ctx.fillStyle = '#6a3a18'; ctx.fillRect(x-3, y-5, box.w+6, 15);
-    ctx.fillStyle = '#3a1a00'; ctx.fillRect(x, y+10, box.w, 3);
-  } else {
-    const glow = Math.sin(Date.now()/300) * 0.2 + 0.8;
-    ctx.fillStyle = `rgb(${Math.floor(139*glow)}, ${Math.floor(90*glow)}, ${Math.floor(43*glow)})`; ctx.fillRect(x, y, box.w, box.h);
-    ctx.fillStyle = '#5a3a1b'; ctx.fillRect(x, y+box.h/2-2, box.w, 4); ctx.fillRect(x+box.w/2-2, y, 4, box.h);
-    ctx.fillStyle = '#ffcc00'; ctx.fillRect(x+box.w/2-4, y+box.h/2-4, 8, 8);
-    ctx.fillStyle = '#fff'; ctx.fillRect(x+box.w/2-2, y+box.h/2-2, 2, 2);
-    ctx.strokeStyle = '#2a1a08'; ctx.lineWidth = 2; ctx.strokeRect(x, y, box.w, box.h);
-  }
-}
-
-// ============ NUEVO: Dibujo de Secuaces ============
-function drawSecuaz(s) {
-  const x = s.x, y = s.y;
-  const seed = s.seed || 0;
-  const bob = Math.sin(Date.now()/200 + seed) * 2;
-
-  // Sombra
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.beginPath(); ctx.ellipse(x+15, y+42, 14, 4, 0, 0, Math.PI*2); ctx.fill();
-
-  // Aura maléfico (respiración)
-  const aura = 0.15 + Math.sin(Date.now()/180 + seed) * 0.1;
-  ctx.fillStyle = `rgba(139, 0, 255, ${aura})`;
-  ctx.beginPath(); ctx.arc(x+15, y+18, 38, 0, Math.PI*2); ctx.fill();
-
-  // Resaltar si estamos cerca y vivos
-  let canAnswer = false;
-  if (players[myId] && players[myId].alive) {
-    if (Math.hypot(players[myId].x - (x+15), players[myId].y - (y+20)) < 120) {
-      canAnswer = true;
-    }
-  }
-  if (canAnswer) {
-    ctx.strokeStyle = `rgba(255, 204, 0, ${0.5 + Math.sin(Date.now()/120)*0.5})`;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 3]);
-    ctx.strokeRect(x-6, y-18+bob-3, 42, 68);
-    ctx.setLineDash([]);
-  }
-
-  // === Cuerpo (túnica morada) ===
-  ctx.fillStyle = '#3a0050';
-  ctx.fillRect(x, y+12+bob, 30, 26);
-  ctx.fillStyle = '#6a00b3';
-  ctx.fillRect(x+2, y+14+bob, 26, 22);
-
-  // Cinturón
-  ctx.fillStyle = '#1a0030';
-  ctx.fillRect(x, y+28+bob, 30, 4);
-  ctx.fillStyle = '#ffcc00';
-  ctx.fillRect(x+13, y+27+bob, 4, 6);
-
-  // === Cabeza (calavera/demonio) ===
-  ctx.fillStyle = '#a020f0';
-  ctx.fillRect(x+5, y-8+bob, 20, 22);
-  // Sombras
-  ctx.fillStyle = '#6a00b3';
-  ctx.fillRect(x+5, y+10+bob, 20, 4);
-
-  // Cuernos
-  ctx.fillStyle = '#1a0030';
-  ctx.beginPath();
-  ctx.moveTo(x+4, y-5+bob); ctx.lineTo(x, y-18+bob); ctx.lineTo(x+6, y-8+bob); ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(x+26, y-5+bob); ctx.lineTo(x+30, y-18+bob); ctx.lineTo(x+24, y-8+bob); ctx.closePath();
-  ctx.fill();
-
-  // === Ojos (rojos brillantes) ===
-  const eyeGlow = Math.sin(Date.now()/100 + seed) * 0.3 + 0.7;
-  // Cuencas oscuras
-  ctx.fillStyle = '#1a0030';
-  ctx.fillRect(x+7, y-3+bob, 6, 6);
-  ctx.fillRect(x+17, y-3+bob, 6, 6);
-  // Brillo rojo
-  ctx.fillStyle = `rgba(255, ${Math.floor(50*eyeGlow)}, 0, ${eyeGlow})`;
-  ctx.fillRect(x+9, y-2+bob, 3, 4);
-  ctx.fillRect(x+19, y-2+bob, 3, 4);
-  // Pupila brillante
-  ctx.fillStyle = '#ffff00';
-  ctx.fillRect(x+10, y-1+bob, 1, 2);
-  ctx.fillRect(x+20, y-1+bob, 1, 2);
-
-  // === Boca (sonrisa maléfica) ===
-  ctx.fillStyle = '#1a0030';
-  ctx.fillRect(x+10, y+5+bob, 10, 3);
-  // Dientes
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(x+11, y+5+bob, 1, 2);
-  ctx.fillRect(x+13, y+5+bob, 1, 2);
-  ctx.fillRect(x+15, y+5+bob, 1, 2);
-  ctx.fillRect(x+17, y+5+bob, 1, 2);
-  ctx.fillRect(x+19, y+5+bob, 1, 2);
-
-  // === Brazos ===
-  ctx.fillStyle = '#6a00b3';
-  ctx.fillRect(x-4, y+14+bob, 4, 14);
-  ctx.fillRect(x+30, y+14+bob, 4, 14);
-  // Manos
-  ctx.fillStyle = '#a020f0';
-  ctx.fillRect(x-5, y+26+bob, 6, 5);
-  ctx.fillRect(x+29, y+26+bob, 6, 5);
-
-  // === Piernas ===
-  ctx.fillStyle = '#3a0050';
-  ctx.fillRect(x+5, y+38+bob, 8, 8);
-  ctx.fillRect(x+17, y+38+bob, 8, 8);
-
-  // === Signo "?" flotante ===
-  const qBob = Math.sin(Date.now()/150 + seed) * 4;
-  ctx.font = 'bold 24px Courier New';
-  ctx.textAlign = 'center';
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = '#000';
-  ctx.strokeText('?', x+15, y-22+bob+qBob);
-  ctx.fillStyle = '#ffcc00';
-  ctx.fillText('?', x+15, y-22+bob+qBob);
-
-  // Marca de "siendo respondido" (candado)
-  if (s.answeredBy) {
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
-    ctx.beginPath(); ctx.arc(x+15, y-35+bob, 5, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 10px Courier New';
-    ctx.fillText('!', x+15, y-32+bob);
-  }
-}
-
-function drawPlayer(p) {
-  if (!p.alive) {
-    ctx.fillStyle = '#ddd'; ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#000'; ctx.fillRect(p.x-5, p.y-3, 3, 3); ctx.fillRect(p.x+2, p.y-3, 3, 3); return;
-  }
-  const x = p.x, y = p.y, bob = p.sitting ? 0 : Math.sin(Date.now()/150) * 1, f = p.facing;
-
-  ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(x, y+22, 12, 4, 0, 0, Math.PI*2); ctx.fill();
-  if (p.sitting) {
-    ctx.fillStyle = '#222'; ctx.fillRect(x-8, y+5, 16, 6); ctx.fillStyle = p.color; ctx.fillRect(x-10, y-12, 20, 18);
-    ctx.fillStyle = p.color; ctx.fillRect(x-8, y-26+bob, 16, 16);
-    ctx.fillStyle = '#000'; ctx.fillRect(x-5*f-2, y-22+bob, 3, 3); ctx.fillRect(x+2*f-1, y-22+bob, 3, 3); ctx.fillRect(x-2, y-15+bob, 4, 1);
-  } else {
-    const walk = Math.sin(Date.now()/100) * 3;
-    ctx.fillStyle = '#222'; ctx.fillRect(x-8, y+10, 6, 12 + (walk > 0 ? walk : 0)); ctx.fillRect(x+2, y+10, 6, 12 + (walk < 0 ? -walk : 0));
-    ctx.fillStyle = p.color; ctx.fillRect(x-10, y-8+bob, 20, 20); ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(x-10, y+5+bob, 20, 3);
-    ctx.fillStyle = p.color; ctx.fillRect(x-8, y-24+bob, 16, 16); ctx.fillStyle = '#2a1a0a'; ctx.fillRect(x-8, y-24+bob, 16, 4);
-    ctx.fillStyle = '#fff'; ctx.fillRect(x-5, y-20+bob, 4, 4); ctx.fillRect(x+1, y-20+bob, 4, 4);
-    ctx.fillStyle = '#000'; ctx.fillRect(x-4+f, y-19+bob, 2, 2); ctx.fillRect(x+2+f, y-19+bob, 2, 2); ctx.fillRect(x-2, y-13+bob, 4, 1);
-    ctx.fillStyle = p.color; ctx.fillRect(x-13, y-6+bob, 4, 12); ctx.fillRect(x+9, y-6+bob, 4, 12);
-    if (p.weapon) { ctx.fillStyle = '#444'; ctx.fillRect(x+11*f, y-3+bob, 18*f, 4); ctx.fillStyle = '#222'; ctx.fillRect(x+11*f, y-1+bob, 18*f, 2); }
-  }
-
-  ctx.font = 'bold 12px Courier New'; ctx.textAlign = 'center';
-  const nameY = p.sitting ? y-32 : y-30+bob; const tw = ctx.measureText(p.name).width;
-  ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x-tw/2-3, nameY-10, tw+6, 14); ctx.fillStyle = '#fff'; ctx.fillText(p.name, x, nameY);
-  if (p.weapon) { ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x-20, nameY-22, 40, 10); ctx.fillStyle = '#00ff00'; ctx.font = '9px Courier New'; ctx.fillText(p.weapon, x, nameY-14); }
-}
-
-function drawDuolingo() {
-  if (!duolingo) return;
-  const x = duolingo.x, y = duolingo.y, bob = Math.sin(Date.now()/200) * 3, flash = duolingo.hitFlash > 0;
-  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.beginPath(); ctx.ellipse(x, y+35, 25, 7, 0, 0, Math.PI*2); ctx.fill();
-  if (fightMode) { ctx.fillStyle = `rgba(255,0,0,${0.2 + Math.sin(Date.now()/100)*0.1})`; ctx.beginPath(); ctx.arc(x, y, 50, 0, Math.PI*2); ctx.fill(); }
-  ctx.fillStyle = flash ? '#fff' : '#58cc02'; ctx.fillRect(x-25, y-30+bob, 50, 55);
-  ctx.fillStyle = flash ? '#fff' : '#45a802'; ctx.fillRect(x-25, y+15+bob, 50, 10);
-  ctx.fillStyle = flash ? '#fff' : '#ffffff'; ctx.fillRect(x-15, y-5+bob, 30, 25);
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x-10, y-18+bob, 9, 0, Math.PI*2); ctx.arc(x+10, y-18+bob, 9, 0, Math.PI*2); ctx.fill();
-
-  let targetX = x, targetY = y;
-  Object.values(players).forEach(p => { if (p.alive && !p.sitting) { targetX = p.x; targetY = p.y; } });
-  const dx = targetX - x, dy = targetY - y, d = Math.hypot(dx, dy) || 1, px = (dx/d) * 3, py = (dy/d) * 3;
-  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x-10+px, y-18+bob+py, 4, 0, Math.PI*2); ctx.arc(x+10+px, y-18+bob+py, 4, 0, Math.PI*2); ctx.fill();
-
-  ctx.fillStyle = flash ? '#fff' : '#ff9600'; ctx.beginPath(); ctx.moveTo(x-6, y-5+bob); ctx.lineTo(x+6, y-5+bob); ctx.lineTo(x, y+5+bob); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = flash ? '#fff' : '#ff9600'; ctx.fillRect(x-18, y+25+bob, 10, 8); ctx.fillRect(x+8, y+25+bob, 10, 8);
-  ctx.fillStyle = flash ? '#fff' : '#3a8a02'; ctx.fillRect(x-28, y-10+bob, 8, 25); ctx.fillRect(x+20, y-10+bob, 8, 25);
-
-  if (duolingo.hp < duolingo.maxHp) {
-    ctx.fillStyle = '#000'; ctx.fillRect(x-30, y-45+bob, 60, 8);
-    ctx.fillStyle = '#ff0000'; ctx.fillRect(x-29, y-44+bob, 58 * (duolingo.hp/duolingo.maxHp), 6);
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(x-30, y-45+bob, 60, 8);
-  }
-  if (duolingo.hitFlash > 0) duolingo.hitFlash--;
-}
-
-function drawParticles() {
-  particles.forEach(p => { ctx.fillStyle = p.color; ctx.globalAlpha = p.life / 40; ctx.fillRect(p.x-2, p.y-2, 4, 4); });
-  ctx.globalAlpha = 1;
-}
-
-function drawLighting() {
-  const grad = ctx.createRadialGradient(WORLD_W/2, WORLD_H/2, 200, WORLD_W/2, WORLD_H/2, 700);
-  grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,0.7)');
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, WORLD_W, WORLD_H);
-
-  const flicker = Math.sin(Date.now()/100) * 0.1 + 0.9;
-  [[100, 100], [WORLD_W-100, 100], [100, WORLD_H-100], [WORLD_W-100, WORLD_H-100]].forEach(([x,y]) => {
-    const lg = ctx.createRadialGradient(x, y, 0, x, y, 100);
-    lg.addColorStop(0, `rgba(255, 150, 50, ${0.3 * flicker})`); lg.addColorStop(1, 'rgba(255, 150, 50, 0)');
-    ctx.fillStyle = lg; ctx.fillRect(x-100, y-100, 200, 200);
-    ctx.fillStyle = '#ffaa00'; ctx.fillRect(x-2, y-8, 4, 6); ctx.fillStyle = '#ffff00'; ctx.fillRect(x-1, y-6, 2, 3);
-  });
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const scale = canvas.width / (WORLD_W * (window.devicePixelRatio || 1));
-  ctx.save();
-
-  if (screenShake > 0) {
-    ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
-    screenShake *= 0.9; if (screenShake < 0.5) screenShake = 0;
-  }
-
-  ctx.scale(scale * (window.devicePixelRatio || 1), scale * (window.devicePixelRatio || 1));
-
-  drawBackground();
-
-  // QoL: Dibujar Indicador de target (Movimiento)
-  if (players[myId] && !players[myId].sitting && players[myId].alive) {
-    const p = players[myId];
-    const distTarget = Math.hypot(p.targetX - p.x, p.targetY - p.y);
-    if (distTarget > 5) {
-      ctx.strokeStyle = `rgba(255, 204, 0, ${0.3 + Math.sin(Date.now()/100)*0.4})`; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(p.targetX, p.targetY, 8, 0, Math.PI*2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(p.targetX-4, p.targetY); ctx.lineTo(p.targetX+4, p.targetY);
-      ctx.moveTo(p.targetX, p.targetY-4); ctx.lineTo(p.targetX, p.targetY+4); ctx.stroke();
-    }
-  }
-
-  chairs.forEach(drawChair); boxes.forEach(drawBox);
-
-  // === Ordenar entidades por Y para profundidad correcta ===
-  const allEntities = [
-    ...Object.values(players).map(p => ({type:'player', data:p, y:p.y})),
-    ...(duolingo ? [{type:'duo', data:duolingo, y:duolingo.y}] : []),
-    ...secuaces.map(s => ({type:'secuaz', data:s, y:s.y + 20})) // === NUEVO ===
-  ].sort((a,b) => a.y - b.y);
-
-  allEntities.forEach(e => {
-    if (e.type === 'player') drawPlayer(e.data);
-    else if (e.type === 'duo') drawDuolingo();
-    else if (e.type === 'secuaz') drawSecuaz(e.data); // === NUEVO ===
-  });
-
-  drawParticles(); drawLighting(); ctx.restore();
-}
-
-// ============ LÓGICA DEL JUEGO ============
-function updatePlayers() {
-  Object.values(players).forEach(p => {
-    if (!p.alive || p.sitting) return;
-    const dx = p.targetX - p.x, dy = p.targetY - p.y, dist = Math.hypot(dx, dy);
-    if (dist > 2) {
-      p.x += (dx/dist) * 2.5; p.y += (dy/dist) * 2.5; p.facing = dx > 0 ? 1 : -1;
-      if (Date.now() - lastStepTime > 250 && p === players[myId]) { playSound('step'); lastStepTime = Date.now(); }
-    }
-    p.x = Math.max(50, Math.min(WORLD_W-50, p.x)); p.y = Math.max(50, Math.min(WORLD_H-50, p.y));
-  });
-}
-
-function updateParticles() {
-  particles = particles.filter(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--; return p.life > 0; });
-}
-
-function updateDuolingo() {
-  if (!duolingo) return;
-  let target = null, minDist = Infinity;
-  Object.values(players).forEach(p => {
-    if (!p.alive || p.sitting) return;
-    const d = Math.hypot(p.x - duolingo.x, p.y - duolingo.y);
-    if (d < minDist) { minDist = d; target = p; }
-  });
-
-  if (target) {
-    const dx = target.x - duolingo.x, dy = target.y - duolingo.y, d = Math.hypot(dx, dy);
-    if (d > 5) { duolingo.x += (dx/d) * 1.5; duolingo.y += (dy/d) * 1.5; }
-    if (isHost) broadcast({type:'duolingo_move', duolingo: duolingo});
-
-    if (d < 60 && !fightMode && !currentQuestion && !voting) {
-      if (isHost) {
-        const q = QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)];
-        currentQuestion = q; broadcast({type:'question', question: q}); handleMsg({type:'question', question: q});
-      }
-    }
-  }
-}
-
-function gameLoop() {
-  if (!gameStarted) return;
-  updatePlayers(); updateParticles(); if (isHost) updateDuolingo(); draw(); updateHUD();
-  requestAnimationFrame(gameLoop);
-}
-
-// ============ TIMERS ============
-function startTimer() {
-  setInterval(() => {
-    if (!gameStarted) return;
-    if (!duolingo && !voting && !fightMode) {
-      duolingoTimer--;
-      const m = Math.floor(duolingoTimer/60), s = duolingoTimer%60;
-      document.getElementById('timeLeft').textContent = m + ':' + (s<10?'0':'') + s;
-      if (duolingoTimer <= 0) spawnDuolingo();
-    }
-    if (isHost) {
-      boxRespawnTimer--;
-      if (boxRespawnTimer <= 0) {
-        boxes.forEach(b => { b.opened = false; b.x = 100 + Math.random()*(WORLD_W-200); b.y = 150 + Math.random()*(WORLD_H-300); });
-        broadcast({type:'boxes_respawn', boxes: boxes}); handleMsg({type:'boxes_respawn', boxes: boxes});
-        boxRespawnTimer = 30;
-      }
-
-      // === NUEVO: Spawn de Secuaces cada 1 minuto ===
-      if (secuaces.length === 0) {
-        secuazSpawnTimer--;
-        if (secuazSpawnTimer <= 0) {
-          spawnSecuaces();
-          secuazSpawnTimer = 60; // Reiniciar a 1 minuto
-        }
-      }
-    }
-  }, 1000);
-}
-
-function resetTimer() { duolingoTimer = 300; }
-
-function spawnDuolingo() {
-  duolingo = {x: WORLD_W/2, y: 80, hp: 100, maxHp: 100, hitFlash: 0};
-  if (isHost) {
-    broadcast({type:'duolingo_spawn', duolingo: duolingo});
-    const hasWeapon = Object.values(players).some(p => p.alive && p.weapon);
-    if (hasWeapon) { setTimeout(() => { voting = true; votes = {}; broadcast({type:'vote_start'}); handleMsg({type:'vote_start'}); }, 2000); }
-  }
-}
-
-function castVote(vote) {
-  const data = {type:'vote', id: myId, vote: vote};
-  if (isHost) { handleMsg(data); } else { conn.send(data); }
-  document.getElementById('votePanel').style.display = 'none';
-}
-
-function resolveVote() {
-  const yes = Object.values(votes).filter(v => v).length, no = Object.values(votes).filter(v => !v).length, fight = yes > no;
-  const data = {type:'vote_result', fight: fight}; broadcast(data); handleMsg(data);
-  if (!fight) {
-    setTimeout(() => {
-      const q = QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)];
-      currentQuestion = q; broadcast({type:'question', question: q}); handleMsg({type:'question', question: q});
-    }, 1500);
-  }
-}
-
-function checkAnswer(playerId, ans) {
-  if (!currentQuestion) return;
-  const correct = ans === currentQuestion.a.toLowerCase();
-  if (correct) {
-    broadcast({type:'answer_result', id: playerId, correct: true}); handleMsg({type:'answer_result', id: playerId, correct: true});
-    duolingo = null; fightMode = false; resetTimer();
-  } else {
-    broadcast({type:'answer_result', id: playerId, correct: false}); handleMsg({type:'answer_result', id: playerId, correct: false});
-  }
-}
-
-function submitAnswer() {
-  const ans = document.getElementById('answer').value.trim().toLowerCase();
-  document.getElementById('dialog').style.display = 'none';
-  // Resetear el título del diálogo siempre
-  document.getElementById('dialogTitle').classList.remove('secuaz');
-
-  if (currentSecuaz) {
-    // === NUEVO: Responder a un secuaz ===
-    if (isHost) {
-      checkSecuazAnswer(currentSecuaz, myId, ans);
-    } else {
-      conn.send({type: 'secuaz_answer', secuazId: currentSecuaz.id, playerId: myId, answer: ans});
-    }
-    currentSecuaz = null;
-  } else {
-    // Pregunta normal de Duolingo
-    if (isHost) checkAnswer(myId, ans); else conn.send({type:'submit_answer', id: myId, answer: ans});
-  }
-}
-
-// ============ HUD ============
-function updateHUD() {
-  const hud = document.getElementById('hud');
-  let html = '<h3 style="color:#ffcc00; text-align:center;">VIDAS</h3>';
-  Object.values(players).forEach(p => {
-    // === NUEVO: Renderizar medios corazones ===
-    let heartsStr = '';
-    const lives = Math.max(0, p.lives);
-    for (let i = 0; i < 2; i++) {
-      if (lives >= i + 1) heartsStr += '♥';          // Lleno
-      else if (lives >= i + 0.5) heartsStr += '💔';  // Medio
-      else heartsStr += '🖤';                        // Vacío
-    }
-    const status = p.alive ? (p.sitting ? ' 🪑' : '') : ' 💀';
-    html += '<div class="lifeRow">' + p.name + status + ': <span class="heart">' + heartsStr + '</span></div>';
-  });
-  hud.innerHTML = html;
-
-  const wi = document.getElementById('weaponInfo');
-  if (players[myId] && players[myId].weapon) { wi.style.display = 'block'; document.getElementById('weaponName').textContent = players[myId].weapon; }
-  else { wi.style.display = 'none'; }
-
-  // === NUEVO: HUD de Secuaces ===
-  const si = document.getElementById('secuazInfo');
-  if (gameStarted) {
-    si.style.display = 'block';
-    document.getElementById('secuazCount').textContent = secuaces.length;
-    document.getElementById('secuazTimer').textContent = Math.max(0, secuazSpawnTimer);
-  } else {
-    si.style.display = 'none';
-  }
-
-  // QoL: Actualizar texto botón dinámicamente
-  const sitBtn = document.getElementById('sitBtn');
-  if (players[myId]) {
-    sitBtn.textContent = players[myId].sitting ? '🧍 Levantarse' : '🪑 Sentarse';
-    sitBtn.style.display = players[myId].alive ? 'block' : 'none';
-  }
-}
-
-let msgTimeout = null;
-function showMsg(text) {
-  const box = document.getElementById('msgBox');
-  box.textContent = text;
-  box.style.display = 'block';
-
-  setTimeout(() => box.style.opacity = '1', 10);
-  if (msgTimeout) clearTimeout(msgTimeout);
-  msgTimeout = setTimeout(() => {
-    box.style.opacity = '0';
-    setTimeout(() => box.style.display = 'none', 300);
-  }, 3000);
-}
-
-document.getElementById('answer').addEventListener('keypress', e => { if (e.key === 'Enter') submitAnswer(); });
 </script>
 </body>
 </html>
