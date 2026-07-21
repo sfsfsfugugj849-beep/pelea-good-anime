@@ -18,6 +18,13 @@
     --danger:#e5484d;
     --health:#3fce7c;
     --border:#2a3852;
+    --blue-ability: #4aa3ff; /* Nuevo color para habilidades */
+    --blue-ability-ink: #eaf3ff;
+    --purple-ability: #c084fc; /* Color para habilidades de tiempo/control */
+    --purple-ability-ink: #f3e8ff;
+    --diamond-shield: #67e8f9; /* Color para escudo de diamante */
+    --drone-body: #60a5fa; /* Color para el cuerpo del dron */
+    --drone-prop: #a78bfa; /* Color para las hélices del dron */
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
@@ -63,6 +70,8 @@
   .hud-inner{display:flex;gap:14px;align-items:center;background:rgba(14,20,32,.7);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:30px;padding:8px 18px;font-size:13px}
   .hud b{color:var(--amber)}
   .wave-timer{color:var(--muted)}
+  .boss-wave-indicator{color:var(--danger);font-weight:bold;animation:pulse 1.5s infinite alternate;}
+  @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
 
   /* Controles móviles */
   .touch{position:absolute;bottom:0;left:0;right:0;height:170px;display:none;pointer-events:none;z-index:5}
@@ -71,8 +80,8 @@
   .tbtn:active{background:rgba(245,185,66,.35)}
   #tLeft{left:22px}
   #tRight{left:118px}
-  #tAct{right:26px;width:104px;height:104px;background:rgba(245,185,66,.85);color:var(--amber-ink);font-size:15px;text-align:center;line-height:1.1}
-  #tAbility{right:140px;bottom:44px;width:74px;height:74px;background:rgba(74,163,255,.82);border-color:#4aa3ff;color:#eaf3ff;font-size:12px;text-align:center;line-height:1.1;display:none}
+  #tAct{right:26px;width:104px;height:104px;background:var(--amber);color:var(--amber-ink);font-size:15px;text-align:center;line-height:1.1}
+  #tAbility{right:140px;bottom:44px;width:74px;height:74px;background:var(--blue-ability);border-color:var(--blue-ability);color:var(--blue-ability-ink);font-size:12px;text-align:center;line-height:1.1;display:none}
   #tAbility.show{display:flex}
   #tAbility.cool{background:rgba(30,43,66,.7);border-color:var(--border);color:var(--muted)}
 
@@ -96,7 +105,7 @@
   .class .buy{display:inline-block;background:var(--amber);color:var(--amber-ink);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:800}
   .class .buy.no{background:var(--panel);color:var(--muted);border:1px solid var(--border)}
   .class .cost-tag{position:absolute;top:8px;right:8px;background:rgba(14,20,32,.85);border:1px solid var(--amber);color:var(--amber);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:800}
-  .ability-hint{position:absolute;top:70px;left:50%;transform:translateX(-50%);background:rgba(30,43,66,.9);border:1px solid #4aa3ff;color:#eaf3ff;padding:6px 14px;border-radius:20px;font-size:12px;z-index:7;pointer-events:none;white-space:nowrap}
+  .ability-hint{position:absolute;top:70px;left:50%;transform:translateX(-50%);background:rgba(30,43,66,.9);border:1px solid var(--blue-ability);color:var(--blue-ability-ink);padding:6px 14px;border-radius:20px;font-size:12px;z-index:7;pointer-events:none;white-space:nowrap}
 
   /* ---------- Salida / botón cerrar ---------- */
   .close-x{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;background:var(--panel-2);border:1px solid var(--border);color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
@@ -284,6 +293,7 @@ const STRIKE_DMG = 34;
 const WAVE_DURATION = 26;      // seg por oleada
 const MAX_PLAYERS = 10;
 const TICK = 1/30;             // paso de simulación del host
+const BASE_PATCH_DURATION = 15; // Segundos que dura una reparación antes de poder reabrirse
 
 const COLORS = ["#f5b942","#3fce7c","#4aa3ff","#e5484d","#c084fc","#ff8f3f","#2dd4bf","#f472b6","#a3e635","#facc15"];
 
@@ -305,8 +315,10 @@ const UPGRADES = [
   {id:"revNow",  ic:"🙌", nm:"¡Todos en pie!",    ds:"Revive a TODOS los aliados derribados.",  scope:"once", team:true, teamApply:g=>{g.players.forEach(q=>{if(q.state==="downed"){q.state="alive";q.hp=Math.max(q.hp,q.maxHp*0.5)}})}},
   {id:"revSpd",  ic:"⏱️", nm:"Médico rápido",     ds:"Revives aliados 40% más rápido.",         apply:p=>p.reviveMult*=1.40},
   {id:"dodge",   ic:"👻", nm:"Reflejos",          ds:"15% de probabilidad de esquivar un rayo.",apply:p=>p.dodge=Math.min(.6,p.dodge+.15)},
+  {id:"dodge3",  ic:"⚡", nm:"Reflejos Avanzados", ds:"10% más de probabilidad de esquivar un rayo.",apply:p=>p.dodge=Math.min(.8,p.dodge+.10)}, // Nueva mejora
   {id:"shield",  ic:"🔰", nm:"Escudo",            ds:"Bloquea por completo el próximo rayo.",   apply:p=>p.shield+=1},
   {id:"shield2", ic:"🔵", nm:"Escudo doble",      ds:"Bloquea los próximos 2 rayos.",           apply:p=>p.shield+=2},
+  {id:"diamondShield", ic:"💎", nm:"Escudo de Diamante", ds:"10% de probabilidad de bloquear el daño y ganar 5s de invulnerabilidad al ser golpeado.", apply:p=>p.diamondShieldChance+=0.10}, // Nueva mejora
   {id:"life",    ic:"➕", nm:"Vida extra",         ds:"Al morir, revives solo una vez.",         apply:p=>p.lives+=1},
   {id:"warn",    ic:"👁️", nm:"Sexto sentido",     ds:"Ves los avisos de rayo antes (más margen).",apply:p=>p.warnBonus+=0.4},
   {id:"thorns",  ic:"🌩️", nm:"Pararrayos",        ds:"El tejado aguanta más: menos agujeros.",  scope:"once", team:true, teamApply:g=>{g.roofArmor+=0.25}},
@@ -364,6 +376,25 @@ const CLASSES = [
   {id:"storm", ic:"🌩️", nm:"Señor de la tormenta", cost:35,
    ds:"Resistente y con escudo. HABILIDAD: calma la tormenta unos segundos (no caen rayos).",
    passive:p=>{p.maxHp+=40;p.hp+=40;p.resist=Math.min(.75,p.resist+.15);p.shield+=1}, abKind:"calm", cd:34},
+  {id:"alchemist", ic:"✨", nm:"Alquimista", cost:40,
+   ds:"Gana 2 puntos extra por cada rayo sobrevivido. HABILIDAD: Convierte 30 de tu vida en 15 puntos para el equipo.",
+   passive:p=>{p.bonusPointsPerRay=2}, abKind:"transmute", cd:25},
+  {id:"colossus", ic:"🗿", nm:"Coloso", cost:45,
+   ds:"Vida y resistencia masivas. HABILIDAD: Te vuelves invulnerable y atraes todos los rayos por 4 segundos.",
+   passive:p=>{p.maxHp+=120;p.hp+=120;p.resist=Math.min(.75,p.resist+.35);p.shield+=1}, abKind:"invuln", cd:35},
+  {id:"oracle", ic:"🔮", nm:"Oráculo", cost:38,
+   ds:"Ves los avisos de rayo mucho antes. HABILIDAD: Congela la tormenta, deteniendo todos los rayos por 6 segundos.",
+   passive:p=>{p.warnBonus+=0.8;p.speedMult*=1.1}, abKind:"freezeStorm", cd:30},
+  // --- NUEVAS CLASES CARAS ---
+  {id:"timelord", ic:"⏳", nm:"Maestro del Tiempo", cost:120,
+   ds:"HABILIDAD: Ralentiza el tiempo de la tormenta para todos durante 5 segundos. Tus habilidades se recargan 25% más rápido.",
+   passive:p=>{p.abCdMult=0.75}, abKind:"timeWarp", cd:40},
+  {id:"chiefengineer", ic:"🏗️", nm:"Ingeniero Jefe", cost:150,
+   ds:"Reparas agujeros al instante. Los agujeros que tapas son 50% más resistentes. HABILIDAD: Despliega un dron de reparación.",
+   passive:p=>{p.repairMult=999;p.patchArmorBonus=0.5}, abKind:"drone", cd:30},
+  {id:"elementalguardian", ic:"🌀", nm:"Guardián Elemental", cost:180,
+   ds:"Resistencia masiva. 20% de probabilidad de reflejar un rayo, curando al equipo. HABILIDAD: Crea una Zona Segura.",
+   passive:p=>{p.maxHp+=100;p.hp+=100;p.resist=Math.min(.75,p.resist+.40);p.reflectChance=0.2}, abKind:"safeZone", cd:45},
 ];
 const classById = id => CLASSES.find(c=>c.id===id);
 
@@ -402,10 +433,17 @@ function getAch(){ try{return new Set(JSON.parse(localStorage.getItem(LS_ACH)||"
 function saveAch(set){ localStorage.setItem(LS_ACH,JSON.stringify([...set])); }
 // Comprueba logros nuevos, otorga recompensa y devuelve los recién desbloqueados
 function checkAchievements(){
-  const stats=getStats(), have=getAch(), unlocked=[];
-  ACHIEVEMENTS.forEach(a=>{ if(!have.has(a.id)&&a.test(stats)){ have.add(a.id); setPoints(getPoints()+a.rew); unlocked.push(a); } });
-  if(unlocked.length){ saveAch(have); }
-  return unlocked;
+  const stats=getStats(), have=getAch();
+  const newlyUnlocked = [];
+  ACHIEVEMENTS.forEach(a=>{
+    if(!have.has(a.id) && a.test(stats)){
+      have.add(a.id);
+      setPoints(getPoints()+a.rew); // Add points for achievement
+      newlyUnlocked.push(a);
+    }
+  });
+  if(newlyUnlocked.length > 0){ saveAch(have); } // Only save if something changed
+  return newlyUnlocked;
 }
 
 // ---------- Estado global de red ----------
@@ -454,7 +492,7 @@ function refreshMenuProgress(){
   // estadísticas guardadas
   const st=getStats();
   $("menuStats").innerHTML=`
-    <div class="stat"><b>${st.totalRayos}</b><small>rayos totales</small></div>
+    <div class="stat"><b>${st.totalRayos}</b><small>puntos totales</small></div>
     <div class="stat"><b>${st.bestRun}</b><small>récord partida</small></div>
     <div class="stat"><b>${st.bestWave}</b><small>mejor oleada</small></div>
     <div class="stat"><b>${st.games}</b><small>partidas</small></div>`;
@@ -476,7 +514,7 @@ function renderAch(){
   const done=ACHIEVEMENTS.filter(a=>have.has(a.id)).length;
   $("achStats").innerHTML=`
     <div class="stat"><b>${done}/${ACHIEVEMENTS.length}</b><small>logros</small></div>
-    <div class="stat"><b>${st.totalRayos}</b><small>rayos</small></div>
+    <div class="stat"><b>${st.totalRayos}</b><small>puntos</small></div>
     <div class="stat"><b>${st.revives}</b><small>revividos</small></div>
     <div class="stat"><b>${st.holes}</b><small>agujeros</small></div>`;
   const grid=$("achGrid"); grid.innerHTML="";
@@ -571,7 +609,7 @@ const GAME={
   players:{},        // id -> objeto jugador
   order:[],          // orden de ids
   hostId:null,
-  segments:[],       // tejado: {state:0 intacto|1 agujero, prog}
+  segments:[],       // tejado: {state:0 intacto|1 agujero, prog, patchTimer}
   strikes:[],        // rayos activos: {seg,x,phase,t,dur}
   wave:0,
   phase:"lobby",     // lobby | playing | intermission | over
@@ -580,12 +618,22 @@ const GAME={
   strikeTimer:0,
   roofArmor:0,       // reduce prob. de crear agujeros
   stormRelief:0,     // reduce rayos próxima oleada
-  patchArmor:0,      // agujeros tapados aguantan más
+  patchArmor:0,      // agujeros tapados aguantan más (multiplicador de duración)
   intermTimer:0,
-  heals:[],          // efectos visuales de curación {x,t}
+  heals:[],          // efectos visuales de curación {x,t,type}
   toastMsg:null,     // aviso puntual {txt,t}
-  calmTimer:0,       // segundos sin caída de rayos (Señor de la tormenta)
+  calmTimer:0,       // segundos sin caída de rayos (Señor de la tormenta, Oráculo)
+  invulnTimer:0,     // segundos de invulnerabilidad (Coloso)
+  safeZoneTimer:0,   // segundos de zona segura (Guardián Elemental)
+  droneTimer:0,      // duración del dron (Ingeniero Jefe)
+  droneStrikeTimer:0,// tiempo para el siguiente arreglo del dron
+  droneOwnerId:null, // ID del jugador que activó el dron
+  droneX:0, droneY:0, // Posición actual del dron
+  droneAnimFrame:0,  // Frame de animación del dron
+  timeWarpTimer:0,   // duración de ralentización (Maestro del Tiempo)
   runRevives:0, runHoles:0,  // contadores de la partida actual
+  runPointsEarned:0, // Puntos ganados en esta partida (para estadísticas de fin de juego)
+  _bossWaveToastShown:false, // Para mostrar el toast de boss wave solo una vez
 };
 
 function makePlayer(id,name,color,classId){
@@ -597,9 +645,15 @@ function makePlayer(id,name,color,classId){
     speedMult:1,repairMult:1,reviveMult:1,repairRange:0,
     resist:0,regen:0,dodge:0,shield:0,lives:0,warnBonus:0,repairHeal:0,
     teamRepair:0,rallyTimer:0,   // aura de capitán / impulso temporal
+    bonusPointsPerRay:0, // Alquimista
+    abCdMult:1,          // Maestro del Tiempo
+    patchArmorBonus:0,   // Ingeniero Jefe
+    reflectChance:0,     // Guardián Elemental
+    diamondShieldChance:0, // Escudo de Diamante
+    diamondShieldTimer:0,  // Invulnerabilidad temporal
     bleedout:BLEEDOUT,
     abKind:null,abCd:0,abMax:0,abReq:false, // habilidad de clase
-    rayos:0,            // rayos sobrevividos (para puntos)
+    rayos:0,            // puntos de rayos sobrevividos en esta partida (para estadísticas)
     walk:0,             // fase de animación al caminar
     input:{left:false,right:false,action:false},
     busy:null,          // "repair" | "revive" | null (para animación)
@@ -685,24 +739,29 @@ $("btnStart").onclick=()=>{
 
 function initRoof(){
   GAME.segments=[];
-  for(let i=0;i<SEG_COUNT;i++) GAME.segments.push({state:0,prog:0});
+  for(let i=0;i<SEG_COUNT;i++) GAME.segments.push({state:0,prog:0,patchTimer:0}); // patchTimer para Ingeniero Jefe
 }
 
 function applyClass(p){
   const c=classById(p.classId)||CLASSES[0];
   if(c.passive) c.passive(p);
-  if(c.abKind){ p.abKind=c.abKind; p.abMax=c.cd; p.abCd=0; }
+  if(c.abKind){ p.abKind=c.abKind; p.abMax=c.cd * p.abCdMult; p.abCd=0; } // abCdMult para Maestro del Tiempo
 }
 
 function startWaveSystem(){
   GAME.phase="playing"; GAME.wave=1; GAME.waveTimer=WAVE_DURATION;
   GAME.strikes=[]; GAME.flash=0; GAME.strikeTimer=1.2;
-  GAME.runRevives=0; GAME.runHoles=0; GAME.calmTimer=0;
+  GAME.runRevives=0; GAME.runHoles=0; GAME.calmTimer=0; GAME.invulnTimer=0;
+  GAME.safeZoneTimer=0; GAME.droneTimer=0; GAME.droneStrikeTimer=0; GAME.timeWarpTimer=0;
+  GAME.runPointsEarned=0; // Resetear puntos ganados en esta partida
+  GAME._bossWaveToastShown=false; // Resetear para la nueva partida
   initRoof();
   for(const id in GAME.players){
     const p=GAME.players[id];
     applyClass(p);
     p.hp=p.maxHp; p.state="alive"; p.bleedout=BLEEDOUT;
+    p.rayos=0; // Resetear puntos de rayos para esta partida
+    p.diamondShieldTimer=0; // Resetear invulnerabilidad de diamante
   }
   // Aura de equipo del Capitán: bonus de reparación a todos
   let aura=0; for(const id in GAME.players) aura+=GAME.players[id].teamRepair||0;
@@ -722,7 +781,14 @@ function startHostGame(){
     const now=performance.now();
     let dt=(now-last)/1000; last=now;
     if(dt>0.1) dt=0.1;
-    simulate(dt);
+
+    // Aplicar ralentización de tiempo si Maestro del Tiempo está activo
+    const timeFactor = GAME.timeWarpTimer > 0 ? 0.35 : 1; // Ralentiza a 35%
+    simulate(dt * timeFactor);
+    
+    // Decrementar el timer de timeWarp por el tiempo real
+    if(GAME.timeWarpTimer > 0) GAME.timeWarpTimer = Math.max(0, GAME.timeWarpTimer - dt);
+
     broadcastState();
   },1000*TICK);
   requestAnimationFrame(renderLoop);
@@ -759,6 +825,7 @@ function playerSegIndex(p){ const rel=(p.x-ROOF_X0)/SEG_W; return Math.max(0,Mat
 
 function simulate(dt){
   const players=Object.values(GAME.players);
+  const isBossWave = (GAME.wave > 0 && GAME.wave % 5 === 0); // Oleada de jefe
 
   if(GAME.phase==="playing"){
     // --- Movimiento y acciones ---
@@ -776,6 +843,9 @@ function simulate(dt){
       if(p.abReq){ p.abReq=false; if(p.abKind&&p.abCd<=0){ executeAbility(p); p.abCd=p.abMax; } }
       // impulso temporal del Capitán (rally)
       if(p.rallyTimer>0) p.rallyTimer=Math.max(0,p.rallyTimer-dt);
+      // Invulnerabilidad de Escudo de Diamante
+      if(p.diamondShieldTimer>0) p.diamondShieldTimer=Math.max(0,p.diamondShieldTimer-dt);
+
       const spd = p.speedMult * (p.rallyTimer>0?1.6:1);
       // mover
       let vx=0;
@@ -807,7 +877,12 @@ function simulate(dt){
               if(seg.state===1){
                 p.busy="repair";
                 seg.prog+=REPAIR_RATE*p.repairMult*dt;
-                if(seg.prog>=1){ seg.state=0; seg.prog=0; if(p.repairHeal>0)p.hp=Math.min(p.maxHp,p.hp+p.repairHeal); GAME.runHoles=(GAME.runHoles||0)+1; }
+                if(seg.prog>=1){
+                  seg.state=0; seg.prog=0;
+                  seg.patchTimer = BASE_PATCH_DURATION * (1 + GAME.patchArmor + p.patchArmorBonus); // Ingeniero Jefe
+                  if(p.repairHeal>0)p.hp=Math.min(p.maxHp,p.hp+p.repairHeal);
+                  GAME.runHoles=(GAME.runHoles||0)+1;
+                }
                 repaired=true; break;
               }
             }
@@ -819,18 +894,73 @@ function simulate(dt){
       }
     });
 
-    // --- Tormenta / rayos ---
+    // --- Timers globales ---
     GAME.flash=Math.max(0,GAME.flash-dt*3);
     for(let i=GAME.heals.length-1;i>=0;i--){ GAME.heals[i].t-=dt; if(GAME.heals[i].t<=0) GAME.heals.splice(i,1); }
     if(GAME.toastMsg){ GAME.toastMsg.t-=dt; if(GAME.toastMsg.t<=0) GAME.toastMsg=null; }
     if(GAME.calmTimer>0) GAME.calmTimer=Math.max(0,GAME.calmTimer-dt);
+    if(GAME.invulnTimer>0) GAME.invulnTimer=Math.max(0,GAME.invulnTimer-dt); // Coloso invulnerable
+    if(GAME.safeZoneTimer>0) GAME.safeZoneTimer=Math.max(0,GAME.safeZoneTimer-dt); // Guardián Elemental Safe Zone
+
+    // Dron de reparación (Ingeniero Jefe)
+    if(GAME.droneTimer > 0){
+      GAME.droneTimer = Math.max(0, GAME.droneTimer - dt);
+      GAME.droneAnimFrame += dt * 10; // Animate drone
+      
+      // Move drone towards its owner
+      const owner = GAME.players[GAME.droneOwnerId];
+      if (owner && owner.state === "alive") {
+        GAME.droneX += (owner.x - GAME.droneX) * 0.1;
+        GAME.droneY += ((ROOF_Y - 30) - GAME.droneY) * 0.1; // Keep it hovering above roof
+      } else {
+        // If owner is dead/downed, just keep it hovering at its last known position
+        // Or make it despawn faster, or return to a default spot. For now, just hover.
+      }
+
+      GAME.droneStrikeTimer -= dt;
+      if(GAME.droneStrikeTimer <= 0){
+        GAME.droneStrikeTimer = 1.5; // Repara cada 1.5s
+        const holes = []; for(let i=0;i<SEG_COUNT;i++) if(GAME.segments[i].state===1) holes.push(i);
+        if(holes.length > 0){
+          const segIdx = holes[Math.floor(Math.random() * holes.length)];
+          GAME.segments[segIdx].state = 0;
+          GAME.segments[segIdx].prog = 0;
+          GAME.segments[segIdx].patchTimer = BASE_PATCH_DURATION * (1 + GAME.patchArmor + (Object.values(GAME.players).find(p=>p.classId==="chiefengineer")?.patchArmorBonus || 0));
+          GAME.runHoles=(GAME.runHoles||0)+1;
+          // Specific repair spark effect for drone
+          GAME.heals.push({x:segCenterX(segIdx),t:0.4, type:"repairSpark"});
+        }
+      }
+    }
+
+    // Agujeros se reabren
+    GAME.segments.forEach(seg=>{
+      if(seg.state===0 && seg.patchTimer>0){
+        seg.patchTimer-=dt;
+        if(seg.patchTimer<=0){ seg.state=1; seg.prog=0; } // Se reabre si no se repara a tiempo
+      }
+    });
+    
+    // --- Tormenta / rayos ---
     const relief=1-Math.min(0.5,GAME.stormRelief);
-    const baseInterval=Math.max(0.55, 2.5 - GAME.wave*0.16) * relief;
+    let baseInterval=Math.max(0.55, 2.5 - GAME.wave*0.04) * relief; // Ajustado para que las oleadas no sean tan rápidas al principio
+    let maxConcurrent=1+Math.floor(GAME.wave/3);
+
+    if(isBossWave){ // Modificadores de oleada de jefe
+      baseInterval /= 3; // Rayos el triple de rápido
+      maxConcurrent += 4; // 4 rayos concurrentes adicionales
+      if(!GAME._bossWaveToastShown){
+        GAME.toastMsg={txt:`¡OLEADA DE TORMENTA! ¡Aguanten! ⚡`,t:3};
+        GAME._bossWaveToastShown=true;
+      }
+    } else {
+      GAME._bossWaveToastShown=false;
+    }
+
     GAME.strikeTimer-=dt;
-    const maxConcurrent=1+Math.floor(GAME.wave/3);
-    if(GAME.calmTimer<=0 && GAME.strikeTimer<=0 && GAME.strikes.length<maxConcurrent){
+    if(GAME.calmTimer<=0 && GAME.safeZoneTimer<=0 && GAME.strikeTimer<=0 && GAME.strikes.length<maxConcurrent){
       GAME.strikeTimer=baseInterval*(0.6+Math.random()*0.8);
-      spawnStrike();
+      spawnStrike(isBossWave);
     }
     // avanzar rayos
     for(let i=GAME.strikes.length-1;i>=0;i--){
@@ -853,14 +983,19 @@ function simulate(dt){
   }
 }
 
-function spawnStrike(){
+function spawnStrike(isBossWave = false){
   // Preferimos a veces golpear agujeros existentes para presionar al equipo
   const holes=[]; for(let i=0;i<SEG_COUNT;i++) if(GAME.segments[i].state===1) holes.push(i);
   let seg;
-  if(holes.length && Math.random()<0.45) seg=holes[Math.floor(Math.random()*holes.length)];
+  if(holes.length && Math.random()<(isBossWave?0.7:0.45)) seg=holes[Math.floor(Math.random()*holes.length)]; // Más chance de golpear agujeros en boss wave
   else seg=Math.floor(Math.random()*SEG_COUNT);
-  const warn=Math.max(0.55, 1.25 - GAME.wave*0.04);
-  GAME.strikes.push({seg,x:segCenterX(seg),phase:"warn",t:warn,dur:warn,kind:"storm"});
+  
+  let warnTime = Math.max(0.55, 1.25 - GAME.wave*0.04);
+  // Ajustar tiempo de aviso según warnBonus de los jugadores
+  Object.values(GAME.players).forEach(p=>{ if(p.state==="alive") warnTime += p.warnBonus; });
+  warnTime = Math.max(0.55, warnTime); // Mínimo de tiempo de aviso
+
+  GAME.strikes.push({seg,x:segCenterX(seg),phase:"warn",t:warnTime,dur:warnTime,kind:"storm"});
 }
 
 // ---------- Habilidades de clase ----------
@@ -880,21 +1015,21 @@ function executeAbility(p){
         n++;
       }
     });
-    GAME.heals.push({x:p.x,t:0.6});
+    GAME.heals.push({x:p.x,t:0.6, type:"heal"});
     GAME.toastMsg={txt:`${p.name} curó al equipo ⛑️ (${n})`,t:2};
   } else if(p.abKind==="teamShield"){
     Object.values(GAME.players).forEach(q=>{ if(q.state!=="dead") q.shield+=1; });
     GAME.toastMsg={txt:`${p.name} dio escudos al equipo 🔱`,t:2};
   } else if(p.abKind==="fixAll"){
-    GAME.segments.forEach(s=>{ s.state=0; s.prog=0; });
-    GAME.heals.push({x:p.x,t:0.6});
+    GAME.segments.forEach(s=>{ s.state=0; s.prog=0; s.patchTimer = BASE_PATCH_DURATION * (1 + GAME.patchArmor + (Object.values(GAME.players).find(pl=>pl.classId==="chiefengineer")?.patchArmorBonus || 0)); });
+    GAME.heals.push({x:p.x,t:0.6, type:"repairSpark"}); // Use repairSpark for visual
     GAME.toastMsg={txt:`${p.name} reparó todo el tejado ⚙️`,t:2};
   } else if(p.abKind==="dash"){
     // Parpadeo: repara todos los agujeros entre la posición actual y el destino
     const dir=p.facing||1, dest=Math.max(ROOF_X0+20,Math.min(ROOF_X1-20,p.x+dir*260));
     const a=Math.min(p.x,dest), b=Math.max(p.x,dest);
-    GAME.segments.forEach((s,i)=>{ const cx=segCenterX(i); if(cx>=a-SEG_W&&cx<=b+SEG_W){ s.state=0; s.prog=0; } });
-    p.x=dest; GAME.heals.push({x:dest,t:0.5});
+    GAME.segments.forEach((s,i)=>{ const cx=segCenterX(i); if(cx>=a-SEG_W&&cx<=b+SEG_W){ s.state=0; s.prog=0; s.patchTimer = BASE_PATCH_DURATION * (1 + GAME.patchArmor + (Object.values(GAME.players).find(pl=>pl.classId==="chiefengineer")?.patchArmorBonus || 0)); } });
+    p.x=dest; GAME.heals.push({x:dest,t:0.5, type:"repairSpark"}); // Use repairSpark for visual
     GAME.toastMsg={txt:`${p.name} cruzó el tejado 🥷`,t:2};
   } else if(p.abKind==="drain"){
     // Roba vida de la tormenta y reparte a los heridos
@@ -904,24 +1039,58 @@ function executeAbility(p){
       if(q.state==="downed"){ q.state="alive"; q.hp=q.maxHp*0.5; q.bleedout=BLEEDOUT; q._rev=0; n++; }
       else if(q.hp<q.maxHp){ q.hp=Math.min(q.maxHp,q.hp+35); n++; }
     });
-    GAME.heals.push({x:p.x,t:0.6});
+    GAME.heals.push({x:p.x,t:0.6, type:"heal"});
     GAME.toastMsg={txt:`${p.name} drenó la tormenta 🧛 (${n})`,t:2};
   } else if(p.abKind==="rally"){
     // Grito: acelera a todo el equipo unos segundos
     Object.values(GAME.players).forEach(q=>{ if(q.state!=="dead"){ q.rallyTimer=4; } });
-    GAME.heals.push({x:p.x,t:0.5});
+    GAME.heals.push({x:p.x,t:0.5, type:"heal"});
     GAME.toastMsg={txt:`${p.name} dio la orden: ¡todos más rápido! 🎖️`,t:2};
   } else if(p.abKind==="reviveAll"){
     let n=0;
     Object.values(GAME.players).forEach(q=>{
       if(q.state==="downed"||q.state==="dead"){ q.state="alive"; q.hp=q.maxHp*0.6; q.bleedout=BLEEDOUT; q._rev=0; n++; }
     });
-    GAME.heals.push({x:p.x,t:0.8});
+    GAME.heals.push({x:p.x,t:0.8, type:"heal"});
     GAME.toastMsg={txt:`${p.name} renació de las cenizas y revivió al equipo 🐦‍🔥 (${n})`,t:2.5};
   } else if(p.abKind==="calm"){
     GAME.calmTimer=Math.max(GAME.calmTimer||0,5);
     GAME.strikes=GAME.strikes.filter(s=>s.phase!=="warn"||s.kind==="bless");
     GAME.toastMsg={txt:`${p.name} calmó la tormenta 🌩️ (5s)`,t:2.5};
+  } else if(p.abKind==="transmute"){ // Alquimista
+    if(p.hp > 30){
+      p.hp -= 30;
+      const pointsToAdd = 15;
+      setPoints(getPoints() + pointsToAdd); // Añade puntos al jugador local
+      GAME.runPointsEarned += pointsToAdd; // Para estadísticas de fin de juego
+      GAME.toastMsg={txt:`${p.name} transmutó vida en ${pointsToAdd} ⚡ para el equipo.`,t:2.5};
+    } else {
+      p.abCd = 0; // Resetea el cooldown si no tiene suficiente vida
+      GAME.toastMsg={txt:`${p.name} no tiene suficiente vida para transmutar.`,t:2.5};
+    }
+  } else if(p.abKind==="invuln"){ // Coloso
+    GAME.invulnTimer=4; // 4 segundos de invulnerabilidad
+    GAME.toastMsg={txt:`${p.name} se volvió invulnerable y atrae los rayos 🗿 (4s)`,t:2.5};
+  } else if(p.abKind==="freezeStorm"){ // Oráculo
+    GAME.calmTimer=Math.max(GAME.calmTimer||0,6); // 6 segundos sin rayos
+    GAME.strikes=GAME.strikes.filter(s=>s.phase!=="warn"||s.kind==="bless"); // Cancela rayos en aviso
+    GAME.toastMsg={txt:`${p.name} congeló la tormenta 🔮 (6s)`,t:2.5};
+  } else if(p.abKind==="timeWarp"){ // Maestro del Tiempo
+    GAME.timeWarpTimer=5; // 5 segundos de ralentización
+    GAME.toastMsg={txt:`${p.name} ralentizó la tormenta ⏳ (5s)`,t:2.5};
+  } else if(p.abKind==="drone"){ // Ingeniero Jefe
+    GAME.droneTimer=8; // 8 segundos de duración del dron
+    GAME.droneStrikeTimer=0.1; // Primer arreglo casi inmediato
+    GAME.droneOwnerId = p.id; // Asignar el dueño
+    GAME.droneX = p.x; // Posición inicial cerca del jugador
+    GAME.droneY = ROOF_Y - 30; // Hovering above the roof
+    GAME.droneAnimFrame = 0; // Reset animation frame
+    GAME.toastMsg={txt:`${p.name} desplegó un dron de reparación 🏗️ (8s)`,t:2.5};
+  } else if(p.abKind==="safeZone"){ // Guardián Elemental
+    GAME.safeZoneTimer=6; // 6 segundos de zona segura
+    GAME.strikes=GAME.strikes.filter(s=>s.phase!=="warn"||s.kind==="bless"); // Cancela rayos en aviso
+    GAME.heals.push({x:p.x,t:0.8, type:"heal"}); // Efecto visual de zona segura
+    GAME.toastMsg={txt:`${p.name} creó una Zona Segura 🌀 (6s)`,t:2.5};
   }
 }
 
@@ -931,8 +1100,8 @@ function resolveStrike(st){
   if(st.kind==="bless"){
     GAME.flash=0.8;
     const cx=segCenterX(st.seg);
-    for(let o=-1;o<=1;o++){ const s=GAME.segments[st.seg+o]; if(s){ s.state=0; s.prog=0; } }
-    GAME.heals.push({x:cx,t:0.7});
+    for(let o=-1;o<=1;o++){ const s=GAME.segments[st.seg+o]; if(s){ s.state=0; s.prog=0; s.patchTimer = BASE_PATCH_DURATION * (1 + GAME.patchArmor + (Object.values(GAME.players).find(pl=>pl.classId==="chiefengineer")?.patchArmorBonus || 0)); } }
+    GAME.heals.push({x:cx,t:0.7, type:"heal"});
     Object.values(GAME.players).forEach(p=>{
       if(p.state==="dead") return;
       if(Math.abs(p.x-cx) < SEG_W*1.6){
@@ -943,11 +1112,41 @@ function resolveStrike(st){
     return;
   }
   GAME.flash=1;
-  // rayo sobrevivido => +1 punto para cada jugador vivo
-  Object.values(GAME.players).forEach(p=>{ if(p.state==="alive") p.rayos++; });
+
+  // Si hay una Zona Segura activa, los rayos no caen en ella
+  if(GAME.safeZoneTimer > 0){
+    const guardianPlayer = Object.values(GAME.players).find(p => p.abKind === "safeZone" && p.state === "alive");
+    if(guardianPlayer && Math.abs(guardianPlayer.x - segCenterX(st.seg)) < 200){ // Área de 200px alrededor del Guardián
+      GAME.toastMsg={txt:`Zona Segura activa, rayo desviado 🌀`,t:1.5};
+      return; // Rayo desviado
+    }
+  }
+
+  // Si el Coloso está invulnerable y atrae rayos, no se crea agujero ni se daña a nadie más
+  let colossusAttracting = false;
+  if(GAME.invulnTimer > 0){
+    const colossusPlayer = Object.values(GAME.players).find(p => p.abKind === "invuln" && p.state === "alive");
+    if(colossusPlayer && Math.abs(colossusPlayer.x - segCenterX(st.seg)) < SEG_W * 1.5){ // Coloso cerca del rayo
+      colossusAttracting = true;
+      // El coloso es invulnerable, no toma daño
+      GAME.toastMsg={txt:`El Coloso ${colossusPlayer.name} absorbió el rayo 🗿`,t:1.5};
+    }
+  }
+
+  // Actualizar puntos y estadísticas para jugadores vivos
+  Object.values(GAME.players).forEach(p=>{
+    if(p.state==="alive") {
+      const pointsForThisRay = 1 + (p.bonusPointsPerRay || 0);
+      p.rayos += pointsForThisRay; // Acumula puntos ganados en esta partida
+      GAME.runPointsEarned += pointsForThisRay; // Acumula puntos totales de la partida
+      setPoints(getPoints() + pointsForThisRay); // Añade a los puntos globales inmediatamente
+    }
+  });
+
   if(seg.state===0){
     // tejado intacto: puede crear agujero (armadura reduce probabilidad)
-    const chance=Math.max(0.25, 0.85 - GAME.roofArmor);
+    let chance=Math.max(0.25, 0.85 - GAME.roofArmor);
+    if(GAME.wave > 0 && GAME.wave % 5 === 0) chance = Math.min(0.95, chance + 0.3); // Más chance en boss wave
     if(Math.random()<chance){ seg.state=1; seg.prog=0; }
   } else {
     // agujero abierto: el rayo entra y golpea a quien esté debajo
@@ -955,6 +1154,27 @@ function resolveStrike(st){
     Object.values(GAME.players).forEach(p=>{
       if(p.state==="dead"||p.state==="downed") return;
       if(Math.abs(p.x-cx) < SEG_W*0.75){
+        if(colossusAttracting && p.abKind !== "invuln") return; // Si el Coloso atrae, otros no son golpeados
+        if(colossusAttracting && p.abKind === "invuln") return; // El Coloso es invulnerable
+
+        // Guardián Elemental: reflejar rayo
+        if(p.reflectChance > 0 && Math.random() < p.reflectChance){
+          GAME.toastMsg={txt:`${p.name} reflejó el rayo! 🌀`,t:1.5};
+          Object.values(GAME.players).forEach(q=>{ if(q.state!=="dead")q.hp=Math.min(q.maxHp,q.hp+20); }); // Cura al equipo
+          GAME.heals.push({x:p.x,t:0.5, type:"heal"});
+          return;
+        }
+
+        // Escudo de Diamante: invulnerabilidad temporal
+        if(p.diamondShieldTimer > 0) return; // Ya es invulnerable
+
+        // Escudo de Diamante: probabilidad de activarse
+        if(p.diamondShieldChance > 0 && Math.random() < p.diamondShieldChance){
+          p.diamondShieldTimer = 5; // 5 segundos de invulnerabilidad
+          GAME.toastMsg={txt:`${p.name} activó Escudo de Diamante! 💎`,t:1.5};
+          return; // Bloquea el daño de este rayo
+        }
+
         // esquivar
         if(Math.random()<p.dodge) return;
         // escudo
@@ -1018,6 +1238,7 @@ function triggerGameOver(){
 //  ENVÍO / RECEPCIÓN DE ESTADO
 // =====================================================
 function buildStatePayload(){
+  const isBossWave = (GAME.wave > 0 && GAME.wave % 5 === 0);
   return {
     t:"state",
     phase:GAME.phase, wave:GAME.wave, waveTimer:GAME.waveTimer, flash:GAME.flash,
@@ -1026,15 +1247,23 @@ function buildStatePayload(){
       id:p.id,name:p.name,color:p.color,classId:p.classId,x:Math.round(p.x),hp:Math.round(p.hp),maxHp:p.maxHp,
       state:p.state,facing:p.facing,busy:p.busy,bleedout:Math.round(p.bleedout*10)/10,
       ready:p.ready,options:p.options, rev:p._rev?Math.round(p._rev*100)/100:0,
-      shield:p.shield, rayos:p.rayos,
-      abKind:p.abKind, abCd:Math.round(p.abCd*10)/10, abMax:p.abMax
+      shield:p.shield, rayos:p.rayos, // rayos ahora son puntos ganados en esta partida
+      abKind:p.abKind, abCd:Math.round(p.abCd*10)/10, abMax:p.abMax,
+      diamondShieldTimer:Math.round(p.diamondShieldTimer*10)/10, // Escudo de Diamante
     }}),
     segments:GAME.segments.map(s=>({s:s.state,p:Math.round(s.prog*100)/100})),
     strikes:GAME.strikes.map(s=>({seg:s.seg,x:s.x,phase:s.phase,kind:s.kind||"storm",t:Math.round((s.t/(s.dur||1))*100)/100})),
-    heals:GAME.heals.map(h=>({x:h.x,t:Math.round(h.t*100)/100})),
+    heals:GAME.heals.map(h=>({x:h.x,t:Math.round(h.t*100)/100, type:h.type||"heal"})), // Include type
     toast:GAME.toastMsg?GAME.toastMsg.txt:null,
     calm:GAME.calmTimer>0?Math.round(GAME.calmTimer*10)/10:0,
+    invuln:GAME.invulnTimer>0?Math.round(GAME.invulnTimer*10)/10:0, // Coloso invulnerable
+    safeZone:GAME.safeZoneTimer>0?Math.round(GAME.safeZoneTimer*10)/10:0, // Guardián Elemental Safe Zone
+    drone:GAME.droneTimer>0?Math.round(GAME.droneTimer*10)/10:0, // Ingeniero Jefe Drone
+    droneX:Math.round(GAME.droneX), droneY:Math.round(GAME.droneY), // Drone position
+    droneAnimFrame:Math.round(GAME.droneAnimFrame*10)/10, // Drone animation frame
+    timeWarp:GAME.timeWarpTimer>0?Math.round(GAME.timeWarpTimer*10)/10:0, // Maestro del Tiempo
     revives:GAME.runRevives||0, holes:GAME.runHoles||0,
+    isBossWave: isBossWave, // Añadir estado de oleada de jefe
   };
 }
 function broadcastState(){ const p=buildStatePayload(); latestState=p; broadcast(p); handlePhaseUI(p); }
@@ -1058,7 +1287,7 @@ function showUpgrades(s){
   if(!me){ list.innerHTML=""; return; }
   if(me.ready || me.state==="dead"){
     list.innerHTML="";
-    const readyN=s.players.filter(p=>p.ready).length;
+    const readyN=s.players.filter(p=>p.state!=="dead" && p.ready).length;
     const totN=s.players.filter(p=>p.state!=="dead").length;
     $("upWaiting").textContent = me.state==="dead" ? "Reaparecerás en la próxima oleada…" : `Elegido. Esperando al equipo… (${readyN}/${totN})`;
     return;
@@ -1089,27 +1318,30 @@ function showGameOver(wave){
   gameRunning=false;
   if(GAME._awarded) return; // evita duplicar al recibir más estados
   GAME._awarded=true;
+  
   const me = latestState && latestState.players ? latestState.players.find(p=>p.id===myId) : null;
-  const earned = me ? (me.rayos||0) : 0;
+  const pointsEarnedInThisRun = GAME.runPointsEarned; // Usar el total acumulado en GAME.runPointsEarned
   const revives = latestState ? (latestState.revives||0) : 0;
   const holes = latestState ? (latestState.holes||0) : 0;
-  // Guardado de rayos y estadísticas persistentes
+
+  // Actualizar estadísticas persistentes
   const st=getStats();
-  st.totalRayos+=earned;
-  st.bestRun=Math.max(st.bestRun,earned);
+  st.totalRayos+= pointsEarnedInThisRun; // totalRayos ahora es puntos totales
+  st.bestRun=Math.max(st.bestRun,pointsEarnedInThisRun); // bestRun ahora es puntos en una partida
   st.bestWave=Math.max(st.bestWave,wave);
   st.games+=1; st.revives+=revives; st.holes+=holes;
   saveStats(st);
-  if(earned>0) setPoints(getPoints()+earned);
-  // Logros (recompensas extra) tras guardar stats
-  const newAch=checkAchievements();
-  const bonus=newAch.reduce((a,x)=>a+x.rew,0);
-  $("goBadge").textContent=`Sobrevivieron ${wave} oleada${wave===1?"":"s"}  ·  +${earned} ⚡`;
-  let sub = earned>0
-    ? `Ganaste ${earned} puntos. Récord de partida: ${st.bestRun} rayos · Mejor oleada: ${st.bestWave}.`
-    : "Todo el equipo fue derribado por la tormenta.";
+
+  // Comprobar y otorgar logros (los puntos de logros se manejan dentro de checkAchievements)
+  const newAch = checkAchievements();
+  const bonusPointsFromAch = newAch.reduce((a,x)=>a+x.rew,0);
+
+  $("goBadge").textContent=`Sobrevivieron ${wave} oleada${wave===1?"":"s"}`;
+  let sub = `Ganaste ${pointsEarnedInThisRun} puntos de rayos en esta partida. Récord de partida: ${st.bestRun} puntos · Mejor oleada: ${st.bestWave}.`;
   if(newAch.length){
-    sub += `<br><span style="color:var(--amber)">🏆 ${newAch.length} logro${newAch.length===1?"":"s"} desbloqueado${newAch.length===1?"":"s"} (+${bonus} ⚡): ${newAch.map(a=>a.ic+" "+a.nm).join(", ")}</span>`;
+    sub += `<br><span style="color:var(--amber)">🏆 ${newAch.length} logro${newAch.length===1?"":"s"} desbloqueado${newAch.length===1?"":"s"} (+${bonusPointsFromAch} ⚡): ${newAch.map(a=>a.ic+" "+a.nm).join(", ")}</span>`;
+  } else if (pointsEarnedInThisRun === 0) {
+    sub = "Todo el equipo fue derribado por la tormenta.";
   }
   $("goSub").innerHTML=sub;
 }
@@ -1181,6 +1413,39 @@ function renderLoop(){
 }
 
 function drawRoundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// --- NUEVA FUNCIÓN: DIBUJAR DRON ---
+function drawDrone(x, y, frame) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  const bodyColor = getComputedStyle(document.documentElement).getPropertyValue('--drone-body');
+  const propColor = getComputedStyle(document.documentElement).getPropertyValue('--drone-prop');
+
+  // Body
+  ctx.fillStyle = bodyColor;
+  ctx.fillRect(-8, -4, 16, 8); // Main body
+  ctx.fillRect(-6, -6, 12, 2); // Top part
+  ctx.fillRect(-6, 4, 12, 2);  // Bottom part
+
+  // Propellers (simple rotation for animation)
+  const propOffset = Math.sin(frame * 0.2) * 2; // Slight hover effect
+  const propSpin = (frame * 0.5) % (Math.PI * 2); // Continuous spin
+
+  // Left propeller
+  ctx.fillStyle = propColor;
+  ctx.fillRect(-12, -8 + propOffset, 4, 2);
+  ctx.fillRect(-14, -7 + propOffset, 2, 4);
+
+  // Right propeller
+  ctx.fillStyle = propColor;
+  ctx.fillRect(8, -8 + propOffset, 4, 2);
+  ctx.fillRect(12, -7 + propOffset, 2, 4);
+
+  ctx.restore();
+}
+// --- FIN NUEVA FUNCIÓN ---
+
 
 function drawWorld(s){
   ctx.setTransform(1,0,0,1,0,0);
@@ -1290,14 +1555,26 @@ function drawWorld(s){
     }
   });
 
-  // Efectos de curación (anillos verdes que se expanden)
+  // Efectos visuales (curación, reparación de dron, etc.)
   (s.heals||[]).forEach(h=>{
     const k=1-h.t/0.7, r=20+k*90;
-    ctx.strokeStyle=`rgba(63,206,124,${Math.max(0,h.t)})`; ctx.lineWidth=4;
-    ctx.beginPath(); ctx.arc(h.x,GROUND_Y-30,r,0,7); ctx.stroke();
-    ctx.fillStyle=`rgba(63,206,124,${Math.max(0,h.t)*0.9})`; ctx.font="bold 20px sans-serif";
-    ctx.textAlign="center"; ctx.fillText("+",h.x,GROUND_Y-24-k*40);
+    if (h.type === "repairSpark") { // Efecto de reparación del dron
+      ctx.strokeStyle=`rgba(245,185,66,${Math.max(0,h.t)})`; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(h.x,ROOF_Y+13,r*0.5,0,7); ctx.stroke();
+      ctx.fillStyle=`rgba(245,185,66,${Math.max(0,h.t)*0.9})`; ctx.font="bold 16px sans-serif";
+      ctx.textAlign="center"; ctx.fillText("🛠️",h.x,ROOF_Y+10-k*20);
+    } else { // Efecto de curación por defecto
+      ctx.strokeStyle=`rgba(63,206,124,${Math.max(0,h.t)})`; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.arc(h.x,GROUND_Y-30,r,0,7); ctx.stroke();
+      ctx.fillStyle=`rgba(63,206,124,${Math.max(0,h.t)*0.9})`; ctx.font="bold 20px sans-serif";
+      ctx.textAlign="center"; ctx.fillText("+",h.x,GROUND_Y-24-k*40);
+    }
   });
+
+  // Dibujar el dron si está activo
+  if(s.drone > 0){
+    drawDrone(s.droneX, s.droneY, s.droneAnimFrame);
+  }
 
   // Jugadores
   s.players.forEach(p=>{
@@ -1308,7 +1585,7 @@ function drawWorld(s){
     rp.x += (p.x-rp.x)*0.35;
     const moving=Math.abs(p.x-prev)>0.4 && p.state==="alive";
     rp.walk = moving ? rp.walk+0.35 : rp.walk*0.7;
-    drawPlayer(p,rp.x,rp.walk);
+    drawPlayer(p,rp.x,rp.walk,s); // Pasar el estado global para invuln/safezone
   });
 
   ctx.restore();
@@ -1346,12 +1623,32 @@ function drawHat(x,topY,classId,skin){
       ctx.fillStyle="#f5b942"; ctx.beginPath();
       ctx.moveTo(x-11,topY+2);ctx.lineTo(x-11,topY-8);ctx.lineTo(x-5,topY-2);ctx.lineTo(x,topY-11);
       ctx.lineTo(x+5,topY-2);ctx.lineTo(x+11,topY-8);ctx.lineTo(x+11,topY+2);ctx.closePath();ctx.fill(); break;
+    case "alchemist": // Alquimista
+      ctx.fillStyle="#c084fc"; ctx.beginPath();ctx.arc(x,topY+2,10,Math.PI,0);ctx.fill();
+      ctx.fillStyle="#8b5cf6"; ctx.beginPath();ctx.arc(x,topY-4,4,0,7);ctx.fill(); break;
+    case "colossus": // Coloso
+      ctx.fillStyle="#94a3b8"; ctx.beginPath();ctx.arc(x,topY+2,12,Math.PI,0);ctx.fill();
+      ctx.fillStyle="#64748b"; ctx.fillRect(x-12,topY-2,24,4); break;
+    case "oracle": // Oráculo
+      ctx.fillStyle="#2dd4bf"; ctx.beginPath();ctx.arc(x,topY+2,10,Math.PI,0);ctx.fill();
+      ctx.fillStyle="#0f766e"; ctx.beginPath();ctx.arc(x,topY-4,3,0,7);ctx.fill(); break;
+    case "timelord": // Maestro del Tiempo
+      ctx.fillStyle="#8b5cf6"; ctx.beginPath();ctx.arc(x,topY+2,10,Math.PI,0);ctx.fill();
+      ctx.fillStyle="#c084fc"; ctx.beginPath();ctx.arc(x,topY-4,3,0,7);ctx.fill();
+      ctx.strokeStyle="#c084fc"; ctx.lineWidth=1.5; ctx.beginPath();ctx.arc(x,topY-4,6,0,7);ctx.stroke(); break;
+    case "chiefengineer": // Ingeniero Jefe
+      ctx.fillStyle="#f5b942"; drawRoundRect(x-11,topY-4,22,8,3);ctx.fill();
+      ctx.fillRect(x-13,topY+3,26,3); ctx.fillStyle="#c88f1e"; ctx.fillRect(x-2,topY-8,4,5);
+      ctx.fillStyle="#4aa3ff"; ctx.beginPath();ctx.arc(x+8,topY-1,3,0,7);ctx.fill(); break;
+    case "elementalguardian": // Guardián Elemental
+      ctx.fillStyle="#2dd4bf"; ctx.beginPath();ctx.arc(x,topY+2,11,Math.PI,0);ctx.fill();
+      ctx.fillRect(x-11,topY+1,22,4); ctx.fillStyle="#0f766e"; ctx.fillRect(x-1,topY-8,2,10); break;
     default:
       ctx.fillStyle="#6b4a2a"; ctx.beginPath();ctx.arc(x,topY+1,10,Math.PI,0);ctx.fill();
   }
 }
 
-function drawPlayer(p,x,walk){
+function drawPlayer(p,x,walk,s){
   const y=GROUND_Y;
   const down = p.state==="downed", dead=p.state==="dead";
   const skin="#f2d6b3";
@@ -1413,12 +1710,28 @@ function drawPlayer(p,x,walk){
   if(p.id===myId && p.abKind && p.abMax){
     const cd=p.abCd||0, ready=cd<=0;
     ctx.fillStyle="rgba(0,0,0,.55)";ctx.fillRect(x-bw/2,y-P_H-13,bw,4);
-    ctx.fillStyle=ready?"#4aa3ff":"#5a6b86";
+    ctx.fillStyle=ready?"var(--blue-ability)":"var(--muted)";
     ctx.fillRect(x-bw/2+1,y-P_H-12,(bw-2)*(ready?1:1-cd/p.abMax),2);
   }
   // nombre
   ctx.fillStyle= p.id===myId?"#f5b942":"#e8edf6"; ctx.font="bold 11px sans-serif";ctx.textAlign="center";
   ctx.fillText(p.name+(p.id===myId?" (tú)":""),x,y-P_H-24);
+
+  // Indicador de invulnerabilidad (Coloso)
+  if(p.abKind === "invuln" && s.invuln > 0){
+    ctx.strokeStyle="rgba(192,132,252,0.8)"; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(x,y-24,30,0,7); ctx.stroke();
+  }
+  // Indicador de Zona Segura (Guardián Elemental)
+  if(p.abKind === "safeZone" && s.safeZone > 0){
+    ctx.strokeStyle="rgba(45,212,191,0.8)"; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(x,y-24,100,0,7); ctx.stroke();
+  }
+  // Indicador de Escudo de Diamante
+  if(p.diamondShieldTimer > 0){
+    ctx.strokeStyle="var(--diamond-shield)"; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(x,y-24,28,0,7); ctx.stroke();
+  }
 }
 
 let _lastToast=null;
@@ -1428,18 +1741,24 @@ function drawHUD(s){
   const me=myPlayerState(s);
   const holes=s.segments.filter(g=>g.s===1).length;
   let mid = s.phase==="intermission" ? "Elijan mejora" : `⏱ ${Math.max(0,Math.ceil(s.waveTimer))}s`;
+  if(s.isBossWave) mid = `<span class="boss-wave-indicator">¡TORMENTA!</span> ${mid}`; // Indicador de oleada de jefe
   let ab="";
   if(me&&me.abKind){
     const ready=(me.abCd||0)<=0;
-    ab=`<span style="color:${ready?'#4aa3ff':'var(--muted)'}">${ready?'⚡ Habilidad lista':'⏳ '+Math.ceil(me.abCd)+'s'}</span>`;
+    ab=`<span style="color:${ready?'var(--blue-ability)':'var(--muted)'}">${ready?'⚡ Habilidad lista':'⏳ '+Math.ceil(me.abCd)+'s'}</span>`;
   }
   hud.innerHTML=`<span>Oleada <b>${s.wave}</b></span>
     <span class="wave-timer">${mid}</span>
     <span>👥 ${alive}/${s.players.length}</span>
     <span>🕳️ ${holes}</span>
     ${me?`<span>❤️ <b style="color:${me.hp/me.maxHp>0.3?'#3fce7c':'#e5484d'}">${me.hp}</b></span>`:""}
-    ${me?`<span title="Rayos sobrevividos">⚡ <b>${me.rayos||0}</b></span>`:""}
+    ${me?`<span title="Puntos de rayos en esta partida">⚡ <b>${me.rayos||0}</b></span>`:""}
     ${s.calm>0?`<span style="color:#4aa3ff">🌩️ Calma ${Math.ceil(s.calm)}s</span>`:""}
+    ${s.invuln>0?`<span style="color:#c084fc">🗿 Invulnerable ${Math.ceil(s.invuln)}s</span>`:""}
+    ${s.safeZone>0?`<span style="color:#2dd4bf">🌀 Zona Segura ${Math.ceil(s.safeZone)}s</span>`:""}
+    ${s.drone>0?`<span style="color:#f5b942">🏗️ Dron ${Math.ceil(s.drone)}s</span>`:""}
+    ${s.timeWarp>0?`<span style="color:#c084fc">⏳ Tiempo Lento ${Math.ceil(s.timeWarp)}s</span>`:""}
+    ${me && me.diamondShieldTimer > 0 ? `<span style="color:var(--diamond-shield)">💎 Diamante ${Math.ceil(me.diamondShieldTimer)}s</span>`:""}
     ${ab}`;
   // aviso puntual (habilidades)
   if(s.toast && s.toast!==_lastToast){ _lastToast=s.toast; showToast(s.toast); }
