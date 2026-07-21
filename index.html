@@ -88,6 +88,8 @@
   #tAbility{right:140px;bottom:44px;width:74px;height:74px;background:var(--blue-ability);border-color:var(--blue-ability);color:var(--blue-ability-ink);font-size:12px;text-align:center;line-height:1.1;display:none}
   #tAbility.show{display:flex}
   #tAbility.cool{background:rgba(30,43,66,.7);border-color:var(--border);color:var(--muted)}
+  #tShop{left:22px; bottom:118px; width:60px; height:60px; font-size:20px; display:none; } /* Nuevo botón de tienda */
+  #tShop.show{display:flex}
 
   /* ---------- Tienda de clases ---------- */
   .pts-pill{display:inline-flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--border);border-radius:30px;padding:6px 14px;font-size:13px;font-weight:700}
@@ -246,6 +248,7 @@
       <div class="tbtn" id="tRight">▶</div>
       <div class="tbtn" id="tAbility">HABILIDAD</div>
       <div class="tbtn" id="tAct">ACCIÓN</div>
+      <div class="tbtn" id="tShop">🛒</div> <!-- Nuevo botón de tienda móvil -->
     </div>
     <div class="ability-hint" id="abilityHint" style="display:none"></div>
 
@@ -256,6 +259,20 @@
         <p class="desc">Elige una ventaja para la siguiente oleada</p>
         <div class="ups" id="upList"></div>
         <p class="waiting" id="upWaiting"></p>
+      </div>
+    </div>
+
+    <!-- Tienda en partida -->
+    <div class="overlay" id="inGameShopOverlay" style="display:none">
+      <div class="up-card">
+        <button class="close-x" id="btnInGameShopClose" aria-label="Cerrar tienda">✕</button>
+        <div class="shop-head">
+          <div class="logo" style="margin:0"><span class="bolt">🛒</span><b>TIENDA DE OBJETOS</b></div>
+          <span class="pts-pill"><span class="bolt">⚡</span> <b id="inGameShopPoints">0</b></span>
+        </div>
+        <p class="sub" style="margin-bottom:14px">Gasta tus puntos de rayo para obtener ventajas instantáneas o herramientas.</p>
+        <div class="class-grid" id="inGameShopGrid"></div> <!-- Reutilizamos class-grid para el estilo -->
+        <div class="err" id="inGameShopErr"></div>
       </div>
     </div>
 
@@ -406,13 +423,58 @@ const CLASSES = [
    ds:"HABILIDAD: Ralentiza el tiempo de la tormenta para todos durante 5 segundos. Tus habilidades se recargan 25% más rápido.",
    passive:p=>{p.abCdMult=0.75}, abKind:"timeWarp", cd:40},
   {id:"chiefengineer", ic:"🏗️", nm:"Ingeniero Jefe", cost:150,
-   ds:"Reparas agujeros al instante. Los agujeros que tapas son 50% más resistentes. HABILIDAD: Despliega un dron de reparación.",
-   passive:p=>{p.repairMult=999;p.patchArmorBonus=0.5}, abKind:"drone", cd:30},
+   ds:"Reparas agujeros 50% más rápido. Los agujeros que tapas son 50% más resistentes. HABILIDAD: Despliega un dron de reparación.",
+   passive:p=>{p.repairMult*=1.5;p.patchArmorBonus=0.5}, abKind:"drone", cd:30}, // MODIFICADO: repairMult*=1.5
   {id:"elementalguardian", ic:"🌀", nm:"Guardián Elemental", cost:180,
    ds:"Resistencia masiva. 20% de probabilidad de reflejar un rayo, curando al equipo. HABILIDAD: Crea una Zona Segura.",
    passive:p=>{p.maxHp+=100;p.hp+=100;p.resist=Math.min(.75,p.resist+.40);p.reflectChance=0.2}, abKind:"safeZone", cd:45},
 ];
 const classById = id => CLASSES.find(c=>c.id===id);
+
+// ---------- Catálogo de ítems de la tienda en partida ----------
+const SHOP_ITEMS = [
+  {id:"lightningRod", ic:"⚡", nm:"Pararrayos", ds:"Crea un pararrayos que atrae los rayos a su posición por 5s. No crea agujeros.", cost:15,
+   apply: (p, game) => {
+     game.lightningRods.push({id: uid(), x: p.x, y: ROOF_Y, timer: 5, ownerId: p.id});
+     game.toastMsg={txt:`${p.name} desplegó un pararrayos!`,t:2};
+   }},
+  {id:"emergencyHeal", ic:"🩹", nm:"Curación de emergencia", ds:"Te cura 50 de vida al instante.", cost:10,
+   apply: (p, game) => {
+     p.hp = Math.min(p.maxHp, p.hp + 50);
+     game.heals.push({x:p.x,t:0.6, type:"heal"});
+     game.toastMsg={txt:`${p.name} se curó!`,t:2};
+   }},
+  {id:"teamBoost", ic:"🚀", nm:"Impulso de equipo", ds:"Aumenta la velocidad de movimiento de todo el equipo en 20% por 8s.", cost:25,
+   apply: (p, game) => {
+     game.players.forEach(q => { if(q.state !== "dead") q.rallyTimer = Math.max(q.rallyTimer || 0, 8); });
+     game.toastMsg={txt:`${p.name} dio un impulso al equipo!`,t:2};
+   }},
+  {id:"extraShield", ic:"🛡️", nm:"Escudo extra", ds:"Gana 1 escudo que bloquea el próximo rayo.", cost:8,
+   apply: (p, game) => {
+     p.shield += 1;
+     game.toastMsg={txt:`${p.name} obtuvo un escudo!`,t:2};
+   }},
+  {id:"repairKit", ic:"🔧", nm:"Kit de reparación", ds:"Repara 3 agujeros aleatorios al instante.", cost:12,
+   apply: (p, game) => {
+     let repairedCount = 0;
+     for(let i=0; i<3; i++){
+       const holes = []; for(let j=0;j<SEG_COUNT;j++) if(game.segments[j].state===1) holes.push(j);
+       if(holes.length > 0){
+         const segIdx = holes[Math.floor(Math.random() * holes.length)];
+         game.segments[segIdx].state = 0;
+         game.segments[segIdx].prog = 0;
+         game.segments[segIdx].patchTimer = BASE_PATCH_DURATION * (1 + game.patchArmor + (Object.values(game.players).find(pl=>pl.classId==="chiefengineer")?.patchArmorBonus || 0));
+         game.runHoles=(game.runHoles||0)+1;
+         game.heals.push({x:segCenterX(segIdx),t:0.4, type:"repairSpark"});
+         repairedCount++;
+       }
+     }
+     if(repairedCount > 0) game.toastMsg={txt:`${p.name} reparó ${repairedCount} agujeros!`,t:2};
+     else game.toastMsg={txt:`No hay agujeros que reparar.`,t:2};
+   }},
+];
+const shopItemById = id => SHOP_ITEMS.find(item => item.id === id);
+
 
 // ---------- Progreso persistente (puntos + clases) ----------
 const LS_PTS="stormhouse-points", LS_OWN="stormhouse-owned", LS_SEL="stormhouse-selected";
@@ -458,6 +520,7 @@ function checkAchievements(){
       have.add(a.id);
       setPoints(getPoints()+a.rew); // Add points for achievement
       newlyUnlocked.push(a);
+      console.log(`Logro desbloqueado: ${a.nm}! (+${a.rew} puntos)`); // Debugging
     }
   });
   if(newlyUnlocked.length > 0){ saveAch(have); } // Only save if something changed
@@ -468,7 +531,7 @@ function checkAchievements(){
 let peer=null, myId=null, isHost=false, roomCode=null, myName="Jugador";
 const conns={};        // host: id -> DataConnection
 let hostConn=null;     // cliente: conexión al host
-let inputState={left:false,right:false,action:false};
+let inputState={left:false,right:false,action:false,shop:false}; // Añadido 'shop'
 let abilityQueued=false;   // se activa una vez al pulsar habilidad
 let lastSentInput="";
 let latestState=null;  // último estado recibido (cliente) o local (host)
@@ -659,6 +722,10 @@ const GAME={
   enemies: [],        // Lista de objetos enemigos
   runEnemiesKilled: 0, // Contador de enemigos eliminados en la partida actual
   playerAttackCooldown: 0, // Cooldown de ataque del jugador
+
+  // ---------- Nuevos estados para la tienda en partida ----------
+  lightningRods: [], // {id, x, y, timer, ownerId}
+  inGameShopOpen: false, // Estado de la tienda en partida
 };
 
 function makePlayer(id,name,color,classId){
@@ -710,6 +777,7 @@ function makeEnemy(id, x, y) {
     walkAnim: 0,
     stunTimer: 0, // Para habilidad de aturdimiento
     predictedPath: [], // Para habilidad de Oráculo
+    attackAnim: 0, // Animación de ataque del enemigo
   };
 }
 
@@ -745,12 +813,19 @@ function onHostData(conn,d){
     conn.send({t:"welcome",id:d.id,host:GAME.hostId});
     renderLobby();
   } else if(d.t==="input"){
-    const p=GAME.players[conn._pid]; if(p){p.input.left=d.left;p.input.right=d.right;p.input.action=d.action;}
+    const p=GAME.players[conn._pid]; if(p){p.input.left=d.left;p.input.right=d.right;p.input.action=d.action;p.input.shop=d.shop;} // Añadido 'shop'
   } else if(d.t==="ability"){
     const p=GAME.players[conn._pid]; if(p) p.abReq=true;
   } else if(d.t==="pick"){
     const p=GAME.players[conn._pid];
     if(p&&GAME.phase==="intermission"&&!p.ready) applyUpgrade(p,d.id);
+  } else if(d.t==="buyShopItem"){ // Nuevo: comprar ítem de la tienda en partida
+    const p=GAME.players[conn._pid];
+    if(p && GAME.inGameShopOpen){ buyInGameShopItem(p, d.itemId); }
+  } else if(d.t==="toggleShop"){ // Nuevo: abrir/cerrar tienda en partida
+    if(GAME.phase === "playing"){
+      GAME.inGameShopOpen = !GAME.inGameShopOpen;
+    }
   }
 }
 
@@ -815,6 +890,8 @@ function startWaveSystem(){
   GAME.isEnemyWave = false; // Resetear estado de oleada de enemigos
   GAME.enemies = []; // Limpiar enemigos
   GAME.runEnemiesKilled = 0; // Resetear contador de enemigos
+  GAME.lightningRods = []; // Limpiar pararrayos
+  GAME.inGameShopOpen = false; // Cerrar tienda en partida
   initRoof();
   for(const id in GAME.players){
     const p=GAME.players[id];
@@ -870,7 +947,10 @@ function showGameScreen(){
   $("menu").style.display="none"; $("lobby").style.display="none"; $("shop").style.display="none"; $("ach").style.display="none"; $("game").style.display="block";
   resizeCanvas();
   const touch = ('ontouchstart' in window) || navigator.maxTouchPoints>0;
-  if(touch) $("touch").classList.add("show");
+  if(touch) {
+    $("touch").classList.add("show");
+    $("tShop").classList.add("show"); // Mostrar botón de tienda móvil
+  }
   // habilidad de clase
   const cls=classById(getSelected());
   if(cls&&cls.abKind){
@@ -892,6 +972,17 @@ function simulate(dt){
   GAME.isEnemyWave = (GAME.wave > 0 && GAME.wave % ENEMY_WAVE_INTERVAL === 0); // Oleada de enemigos
 
   if(GAME.phase==="playing"){
+    // --- Manejo de la tienda en partida ---
+    if(GAME.inGameShopOpen){
+      // Si la tienda está abierta, los jugadores no se mueven ni realizan acciones
+      players.forEach(p => {
+        p.input.left = false;
+        p.input.right = false;
+        p.input.action = false;
+        p.busy = null;
+      });
+    }
+
     // --- Movimiento y acciones de jugadores ---
     players.forEach(p=>{
       if(p.state==="dead"){p.busy=null;p.abReq=false;return;}
@@ -1007,6 +1098,7 @@ function simulate(dt){
         if(e.stunTimer > 0){
           e.stunTimer = Math.max(0, e.stunTimer - dt);
           e.walkAnim = 0; // Detiene animación de caminar
+          e.attackAnim = 0; // Detiene animación de ataque
           return; // No se mueve ni ataca si está aturdido
         }
 
@@ -1033,6 +1125,7 @@ function simulate(dt){
 
           // Atacar si está en rango
           if(minDist < ENEMY_ATTACK_RANGE && e.attackCooldown <= 0){
+            e.attackAnim = 0.2; // Animación de ataque del enemigo
             closestPlayer.hp -= ENEMY_ATTACK_DAMAGE;
             GAME.heals.push({x:closestPlayer.x, t:0.3, type:"damage"}); // Efecto visual de daño
             e.attackCooldown = ENEMY_ATTACK_COOLDOWN;
@@ -1042,10 +1135,12 @@ function simulate(dt){
             }
           } else if (e.attackCooldown > 0) {
             e.attackCooldown = Math.max(0, e.attackCooldown - dt);
+            e.attackAnim = Math.max(0, e.attackAnim - dt); // Decrementar animación de ataque
           }
         } else {
           e.targetPlayerId = null;
           e.walkAnim = 0;
+          e.attackAnim = 0;
         }
 
         // Predicción de camino para Oracle
@@ -1104,6 +1199,14 @@ function simulate(dt){
         if(seg.patchTimer<=0){ seg.state=1; seg.prog=0; } // Se reabre si no se repara a tiempo
       }
     });
+
+    // Actualizar pararrayos
+    for(let i = GAME.lightningRods.length - 1; i >= 0; i--){
+      GAME.lightningRods[i].timer -= dt;
+      if(GAME.lightningRods[i].timer <= 0){
+        GAME.lightningRods.splice(i, 1);
+      }
+    }
     
     // --- Tormenta / rayos ---
     const relief=1-Math.min(0.5,GAME.stormRelief);
@@ -1153,6 +1256,16 @@ function spawnStrike(isBossWave = false){
     const xPos = Math.random() < 0.5 ? ROOF_X0 - 50 : ROOF_X1 + 50; // Fuera de la casa
     GAME.strikes.push({seg:-1, x:xPos, phase:"warn", t:1.0, dur:1.0, kind:"ambient_storm"}); // kind "ambient_storm" para no dañar
     return;
+  }
+
+  // Prioridad: Pararrayos
+  if(GAME.lightningRods.length > 0 && Math.random() < 0.8){ // 80% de probabilidad de golpear un pararrayos
+    const activeRods = GAME.lightningRods.filter(rod => rod.timer > 0);
+    if(activeRods.length > 0){
+      const rod = activeRods[Math.floor(Math.random() * activeRods.length)];
+      GAME.strikes.push({seg:-1, x:rod.x, phase:"warn", t:0.8, dur:0.8, kind:"lightning_rod"}); // kind "lightning_rod" para no dañar
+      return;
+    }
   }
 
   // Preferimos a veces golpear agujeros existentes para presionar al equipo
@@ -1306,8 +1419,8 @@ function executeAbility(p){
 }
 
 function resolveStrike(st){
-  // Si es un rayo ambiental (durante oleada de enemigos), no hace daño ni crea agujeros
-  if(st.kind === "ambient_storm") {
+  // Si es un rayo ambiental (durante oleada de enemigos) o de pararrayos, no hace daño ni crea agujeros
+  if(st.kind === "ambient_storm" || st.kind === "lightning_rod") {
     GAME.flash=0.8; // Solo un flash visual
     return;
   }
@@ -1412,6 +1525,8 @@ function startIntermission(){
   GAME.phase="intermission"; GAME.intermTimer=30; GAME.strikes=[];
   GAME.enemies = []; // Limpiar enemigos al final de la oleada
   GAME.isEnemyWave = false; // Desactivar oleada de enemigos
+  GAME.lightningRods = []; // Limpiar pararrayos
+  GAME.inGameShopOpen = false; // Cerrar tienda en partida
 
   // resucita a los muertos con media vida para volver a jugar; limpia derribados
   Object.values(GAME.players).forEach(p=>{
@@ -1483,6 +1598,22 @@ function triggerGameOver(){
   clearInterval(hostLoop);
 }
 
+// ---------- Lógica de la tienda en partida (Host) ----------
+function buyInGameShopItem(player, itemId){
+  const item = shopItemById(itemId);
+  if(!item) return;
+
+  if(player.rayos >= item.cost){
+    player.rayos -= item.cost;
+    item.apply(player, GAME); // Aplica el efecto del ítem
+    // No es necesario actualizar los puntos globales aquí, ya se actualizan con los rayos
+    // setPoints(getPoints() - item.cost); // Esto restaría de los puntos globales, lo cual no es deseado para la moneda de la partida
+  } else {
+    // Podríamos enviar un mensaje al cliente para mostrar un error de "no tienes suficientes puntos"
+    GAME.toastMsg={txt:`${player.name} no tiene suficientes ⚡ para ${item.nm}.`,t:2};
+  }
+}
+
 // =====================================================
 //  ENVÍO / RECEPCIÓN DE ESTADO
 // =====================================================
@@ -1522,8 +1653,12 @@ function buildStatePayload(){
       state: e.state, facing: e.facing, walkAnim: Math.round(e.walkAnim*10)/10,
       stunTimer: Math.round(e.stunTimer*10)/10,
       predictedPath: e.predictedPath.map(p => ({x:Math.round(p.x), y:Math.round(p.y), t:Math.round(p.t*10)/10})),
+      attackAnim: Math.round(e.attackAnim*10)/10, // Animación de ataque del enemigo
     })),
     enemiesKilled: GAME.runEnemiesKilled,
+    // ---------- Nuevos estados para la tienda en partida ----------
+    lightningRods: GAME.lightningRods.map(rod => ({x:Math.round(rod.x), y:Math.round(rod.y), timer:Math.round(rod.timer*10)/10})),
+    inGameShopOpen: GAME.inGameShopOpen,
   };
 }
 function broadcastState(){ const p=buildStatePayload(); latestState=p; broadcast(p); handlePhaseUI(p); }
@@ -1535,6 +1670,10 @@ let currentOverlay=null;
 function handlePhaseUI(s){
   if(s.phase==="intermission"){ showUpgrades(s); }
   else { hideUpgrades(); }
+
+  // Manejar la visibilidad de la tienda en partida
+  if(s.inGameShopOpen){ openInGameShop(s); }
+  else { closeInGameShop(); }
 }
 
 function myPlayerState(s){ return s.players.find(p=>p.id===myId); }
@@ -1572,6 +1711,58 @@ function pickUpgrade(id){
   else if(hostConn&&hostConn.open){ hostConn.send({t:"pick",id}); }
   $("upList").innerHTML=""; $("upWaiting").textContent="Elegido. Esperando al equipo…";
 }
+
+// ---------- Tienda en partida (Cliente) ----------
+function openInGameShop(s){
+  const me = myPlayerState(s);
+  if(!me) return;
+  $("inGameShopOverlay").classList.add("show");
+  $("inGameShopPoints").textContent = me.rayos;
+  $("inGameShopErr").textContent = "";
+
+  const grid = $("inGameShopGrid");
+  // Solo re-renderizar si el contenido ha cambiado o si es la primera vez
+  const currentItems = SHOP_ITEMS.map(item => item.id).join(',');
+  if (grid._lastRenderedItems === currentItems && grid.children.length > 0) {
+      return;
+  }
+  grid._lastRenderedItems = currentItems;
+  grid.innerHTML = "";
+
+  SHOP_ITEMS.forEach(item => {
+    const el = document.createElement("div");
+    el.className = "class"; // Reutilizamos el estilo de 'class'
+    const canAfford = me.rayos >= item.cost;
+    const foot = `<span class="buy${canAfford ? "" : " no"}">Comprar</span>`;
+    el.innerHTML = `<span class="cost-tag">⚡ ${item.cost}</span>
+      <div class="cic">${item.ic}</div><div class="cnm">${item.nm}</div>
+      <div class="cds">${item.ds}</div><div class="cfoot">${foot}</div>`;
+    el.onclick = () => {
+      if(canAfford){
+        if(isHost){ buyInGameShopItem(me, item.id); }
+        else if(hostConn && hostConn.open){ hostConn.send({t:"buyShopItem", itemId:item.id}); }
+      } else {
+        $("inGameShopErr").textContent = `Te faltan ${item.cost - me.rayos} puntos para "${item.nm}".`;
+      }
+    };
+    grid.appendChild(el);
+  });
+}
+
+function closeInGameShop(){
+  $("inGameShopOverlay").classList.remove("show");
+  $("inGameShopGrid")._lastRenderedItems = null; // Reset para forzar re-render en la próxima apertura
+  if(!isHost && hostConn && hostConn.open && inputState.shop){ // Si el cliente cierra la tienda, notifica al host
+    inputState.shop = false;
+    hostConn.send({t:"toggleShop"});
+  }
+}
+
+$("btnInGameShopClose").onclick = () => {
+  if(isHost){ GAME.inGameShopOpen = false; }
+  else if(hostConn && hostConn.open){ hostConn.send({t:"toggleShop"}); }
+};
+
 
 function showGameOver(wave){
   $("goOverlay").classList.add("show");
@@ -1619,6 +1810,7 @@ window.addEventListener("keydown",e=>{
   if(e.key==="ArrowRight"||e.key==="d"||e.key==="D") inputState.right=true;
   if(e.key===" "||e.key==="e"||e.key==="E"||e.key==="ArrowUp"||e.key==="w"||e.key==="W"){inputState.action=true;e.preventDefault();}
   if(e.key==="q"||e.key==="Q"||e.key==="Shift"||e.key==="f"||e.key==="F"){ triggerAbility(); e.preventDefault(); }
+  if(e.key==="b"||e.key==="B"){ toggleInGameShop(); e.preventDefault(); } // Tecla para la tienda en partida
   if(isHost) syncHostInput();
 });
 
@@ -1630,6 +1822,7 @@ window.addEventListener("keyup",e=>{
   if(e.key==="ArrowLeft"||e.key==="a"||e.key==="A") inputState.left=false;
   if(e.key==="ArrowRight"||e.key==="d"||e.key==="D") inputState.right=false;
   if(e.key===" "||e.key==="e"||e.key==="E"||e.key==="ArrowUp"||e.key==="w"||e.key==="W") inputState.action=false;
+  if(e.key==="b"||e.key==="B") inputState.shop=false; // Resetear input de tienda
   if(isHost) syncHostInput();
 });
 function syncHostInput(){ const p=GAME.players[myId]; if(p) p.input={...inputState}; }
@@ -1650,6 +1843,19 @@ bindTouch($("tLeft"),"left"); bindTouch($("tRight"),"right"); bindTouch($("tAct"
   el.addEventListener("touchstart",fire,{passive:false});
   el.addEventListener("mousedown",fire);
 })();
+// Botón de tienda móvil
+(function(){
+  const el=$("tShop");
+  const fire=e=>{e.preventDefault(); toggleInGameShop();};
+  el.addEventListener("touchstart",fire,{passive:false});
+  el.addEventListener("mousedown",fire);
+})();
+
+function toggleInGameShop(){
+  if(isHost){ GAME.inGameShopOpen = !GAME.inGameShopOpen; }
+  else if(hostConn && hostConn.open){ hostConn.send({t:"toggleShop"}); }
+  inputState.shop = !inputState.shop; // Mantener el estado del input para que el cliente no envíe spam
+}
 
 // =====================================================
 //  RENDER
@@ -1726,31 +1932,37 @@ function drawEnemy(e, x, walk, s) {
 
   const sw = Math.sin(walk)*5; // balanceo de piernas
   const bodyTop=y-40, headY=y-48;
-  // piernas
+
+  // Piernas
   ctx.fillStyle="#333";
   ctx.fillRect(x-9, y-16, 7, 16+Math.min(0,sw));
   ctx.fillRect(x+2, y-16, 7, 16+Math.min(0,-sw));
-  // pies
+  // Pies
   ctx.fillStyle="#222"; ctx.fillRect(x-11,y-3,10,3); ctx.fillRect(x+2,y-3,10,3);
-  // torso
+  // Torso
   ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--enemy-color');
   drawRoundRect(x-13,bodyTop,26,26,7); ctx.fill();
   ctx.fillStyle=shade(getComputedStyle(document.documentElement).getPropertyValue('--enemy-color'),0.8); ctx.fillRect(x-13,bodyTop+18,26,8); // sombra inferior
   ctx.fillStyle="rgba(255,255,255,.12)"; ctx.fillRect(x-13,bodyTop,26,5); // brillo
-  // brazos
+  // Brazos
   ctx.fillStyle=shade(getComputedStyle(document.documentElement).getPropertyValue('--enemy-color'),0.85);
   ctx.save();ctx.translate(x-13,bodyTop+5);ctx.rotate(sw*0.05);ctx.fillRect(-4,0,5,17);ctx.restore();
   ctx.save();ctx.translate(x+13,bodyTop+5);ctx.rotate(-sw*0.05);ctx.fillRect(-1,0,5,17);ctx.restore();
-  // cuello + cabeza
+  // Cuello + Cabeza
   ctx.fillStyle="#444"; ctx.beginPath();ctx.arc(x,headY,9,0,7);ctx.fill();
   ctx.fillStyle="#333"; ctx.beginPath();ctx.arc(x,headY+2,9,0.15,Math.PI-0.15);ctx.fill();
-  // ojos
+  // Ojos
   ctx.fillStyle="#111"; const ex=e.facing>0?2:-2;
   ctx.beginPath();ctx.arc(x+ex-2,headY-1,1.4,0,7);ctx.arc(x+ex+3,headY-1,1.4,0,7);ctx.fill();
-  // cuchillo
+  // Cuchillo (con animación de ataque)
+  ctx.save();
+  ctx.translate(x + e.facing * 10, bodyTop + 10);
+  ctx.rotate(e.facing * (e.attackAnim > 0 ? -Math.PI/4 : 0)); // Animación de swing
   ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--enemy-weapon-color');
-  ctx.fillRect(x + e.facing * 10, bodyTop + 10, 2, 15); // Mango
-  ctx.fillRect(x + e.facing * 12, bodyTop + 8, 2, 20); // Hoja
+  ctx.fillRect(0, 0, 3, 18); // Mango
+  ctx.fillRect(3, -2, 3, 22); // Hoja
+  ctx.restore();
+
   ctx.restore();
 
   // barra de vida
@@ -1844,11 +2056,20 @@ function drawWorld(s){
   ctx.fillStyle="#5a3c22"; ctx.fillRect(ROOF_X0-14,ROOF_Y-8,ROOF_X1-ROOF_X0+28,9);
   ctx.fillStyle="rgba(255,255,255,.08)"; ctx.fillRect(ROOF_X0-14,ROOF_Y-8,ROOF_X1-ROOF_X0+28,3);
 
+  // Pararrayos
+  s.lightningRods.forEach(rod => {
+    ctx.strokeStyle="#4aa3ff"; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(rod.x, ROOF_Y); ctx.lineTo(rod.x, ROOF_Y - 30); ctx.stroke();
+    ctx.fillStyle="#4aa3ff"; ctx.beginPath(); ctx.arc(rod.x, ROOF_Y - 35, 5, 0, 7); ctx.fill();
+    ctx.fillStyle=`rgba(74,163,255,${rod.timer/5 * 0.5})`; ctx.beginPath(); ctx.arc(rod.x, ROOF_Y, 40, 0, 7); ctx.fill();
+  });
+
   // Rayos (aviso + impacto)
   s.strikes.forEach(st=>{
     const cx=st.x;
     const bless=st.kind==="bless";
     const ambient=st.kind==="ambient_storm"; // Nuevo tipo de rayo
+    const lightningRodStrike = st.kind === "lightning_rod"; // Rayo atraído por pararrayos
     const col = bless ? "63,206,124" : "245,185,66";
     if(st.phase==="warn"){
       const a=0.25+0.55*(1-st.t); // parpadea al acercarse
@@ -1857,14 +2078,14 @@ function drawWorld(s){
       ctx.strokeStyle=`rgba(${col},${a})`; ctx.lineWidth=3; ctx.setLineDash([8,8]);
       ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,GROUND_Y); ctx.stroke(); ctx.setLineDash([]); // Rayos ambientales llegan al suelo
       // triángulo de aviso (solo para rayos que caen en el tejado)
-      if(!ambient) {
+      if(!ambient && !lightningRodStrike) {
         ctx.fillStyle=`rgba(${col},${0.5+0.5*(1-st.t)})`;
         ctx.beginPath(); ctx.moveTo(cx,26);ctx.lineTo(cx-9,10);ctx.lineTo(cx+9,10);ctx.closePath();ctx.fill();
       }
     } else {
       // impacto: bolt
       const seg=s.segments[st.seg];
-      const bottom = (bless || ambient || (seg && seg.s===1)) ? GROUND_Y : ROOF_Y; // Rayos ambientales llegan al suelo
+      const bottom = (bless || ambient || lightningRodStrike || (seg && seg.s===1)) ? GROUND_Y : ROOF_Y; // Rayos ambientales y de pararrayos llegan al suelo
       ctx.strokeStyle= bless ? "#daffe9" : "#fff7dd"; ctx.lineWidth=5;
       ctx.shadowColor= bless ? "#3fce7c" : "#f5b942"; ctx.shadowBlur=25;
       ctx.beginPath(); let yy=0,xx=cx; ctx.moveTo(xx,yy);
@@ -2016,8 +2237,9 @@ function drawPlayer(p,x,walk,s){
     return;
   }
 
+  const bob = Math.sin(walk * 0.5) * 2; // Sutil bob al caminar
   const sw = Math.sin(walk)*5; // balanceo de piernas
-  const bodyTop=y-40, headY=y-48;
+  const bodyTop=y-40 + bob, headY=y-48 + bob;
   // piernas
   ctx.fillStyle="#2c3345";
   ctx.fillRect(x-9, y-16, 7, 16+Math.min(0,sw));
@@ -2119,7 +2341,15 @@ function drawHUD(s){
     ${s.timeWarp>0?`<span style="color:#c084fc">⏳ Tiempo Lento ${Math.ceil(s.timeWarp)}s</span>`:""}
     ${me && me.diamondShieldTimer > 0 ? `<span style="color:var(--diamond-shield)">💎 Diamante ${Math.ceil(me.diamondShieldTimer)}s</span>`:""}
     ${me && me.predictPathTimer > 0 ? `<span style="color:var(--purple-ability)">🔮 Predicción ${Math.ceil(me.predictPathTimer)}s</span>`:""}
-    ${ab}`;
+    ${ab}
+    ${me && me.id === myId ? `<button class="tbtn" id="hudShopBtn" style="position:static; width:auto; height:auto; font-size:12px; padding:4px 8px; margin-left:10px; pointer-events:auto; background:var(--panel-2); border-color:var(--border); color:var(--ink);">🛒 Tienda (B)</button>` : ''}`;
+  
+  // Bind the HUD shop button if it exists
+  const hudShopBtn = $("hudShopBtn");
+  if (hudShopBtn) {
+    hudShopBtn.onclick = toggleInGameShop;
+  }
+
   // aviso puntual (habilidades)
   if(s.toast && s.toast!==_lastToast){ _lastToast=s.toast; showToast(s.toast); }
   if(!s.toast) _lastToast=null;
