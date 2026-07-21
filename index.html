@@ -76,6 +76,10 @@
   @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
   .enemy-wave-indicator{color:var(--enemy-color);font-weight:bold;animation:pulse 1.5s infinite alternate;}
 
+  /* Botón de salida en partida */
+  .exit-btn{position:absolute;top:10px;right:10px;z-index:3;width:40px;height:40px;border-radius:50%;background:rgba(229,72,77,.9);border:1px solid var(--border);color:#fff;font-size:18px;font-weight:bold;display:flex;align-items:center;justify-content:center;cursor:pointer;pointer-events:auto}
+  .exit-btn:hover{filter:brightness(1.1)}
+
   /* Controles móviles */
   .touch{position:absolute;bottom:0;left:0;right:0;height:170px;display:none;pointer-events:none;z-index:5}
   .touch.show{display:block}
@@ -254,6 +258,7 @@
   <div id="game">
     <canvas id="cv"></canvas>
     <div class="hud"><div class="hud-inner" id="hud"></div></div>
+    <button class="exit-btn" id="btnExitGame" title="Salir de la partida">✕</button>
     <div class="toast" id="toast"></div>
 
     <div class="touch" id="touch">
@@ -673,6 +678,7 @@ $("btnCopy").onclick=()=>{ navigator.clipboard&&navigator.clipboard.writeText(ro
 function showToastLobby(){const b=$("btnCopy");b.textContent="¡Copiado!";setTimeout(()=>b.textContent="Copiar",1200);}
 $("btnLeave").onclick=()=>location.reload();
 $("btnAgain").onclick=()=>location.reload();
+$("btnExitGame").onclick=()=>{ if(confirm("¿Seguro que quieres salir de la partida?")) location.reload(); };
 
 function renderLobby(){
   const list=$("playerList"); list.innerHTML="";
